@@ -6,6 +6,7 @@ on:
     # and 06:00 UTC in winter (CET). Both are scheduled; the gate job keeps the matching one.
     - cron: "0 5 * * 1"
     - cron: "0 6 * * 1"
+    - cron: "0 12 * * 0"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -39,6 +40,8 @@ jobs:
           elif [ "$SCHEDULE" = "0 5 * * 1" ] && [ "$offset" = "+0200" ]; then
             run=true
           elif [ "$SCHEDULE" = "0 6 * * 1" ] && [ "$offset" = "+0100" ]; then
+            run=true
+          elif [ "$SCHEDULE" = "0 12 * * 0" ]; then   # TEMP: Test
             run=true
           else
             run=false
