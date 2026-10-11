@@ -8,6 +8,7 @@ import config_module
 cfg = config_module.Config()
 STUDENT_PROFILE = cfg.STUDENT_PROFILE
 EXCLUDE_KEYWORDS = cfg.EXCLUDE_KEYWORDS
+PORN_CATEGORIES = cfg.PORN_CATEGORIES
 
 # initialize FastMCP Server
 mcp = FastMCP("Smart arXiv Paper Agent")
@@ -22,7 +23,7 @@ profile_embedding = embedder.encode(STUDENT_PROFILE, convert_to_tensor=True)
 
 @mcp.tool()
 def fetch_filtered_papers(
-    categories: list[str] = ["cs.LG", "cs.AI", "cs.DC"],
+    categories: list[str] = PORN_CATEGORIES,
     max_fetch: int = 30,
     top_k: int = 5
 ) -> str:
@@ -80,9 +81,6 @@ def fetch_filtered_papers(
 
     return "\n\n".join(output)
 
-test = fetch_filtered_papers(categories=["cs.LG", "cs.AI"], max_fetch=20, top_k=3)
-with open("test_output.txt", "w", encoding="utf-8") as f:
-    f.write(test)
 
 if __name__ == "__main__":
     mcp.run()

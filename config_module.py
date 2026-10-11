@@ -5,3 +5,4 @@ Deep Learning architectures, PyTorch implementation, Transformer models,
 Distributed Systems, GPU memory optimization, and Cloud Computing infrastructure.
 """
     EXCLUDE_KEYWORDS = ["quantum", "medical image analysis", "bioinformatics", "robotics arm", "cancer"]
+    PORN_CATEGORIES = ["cs.LG", "cs.AI", "cs.DC"]
