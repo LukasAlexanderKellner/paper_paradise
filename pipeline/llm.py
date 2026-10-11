@@ -9,9 +9,9 @@ from core.models import Item
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
-    "Du schreibst einen wöchentlichen KI/ML-Newsletter für eine einzelne Leserin bzw. einen einzelnen Leser. "
-    "Schreibe auf Deutsch, sachlich und konkret, ohne Marketing-Floskeln. "
-    "Beziehe dich nur auf die gelieferten Einträge und erfinde keine Details, die nicht im Titel oder Kurztext stehen."
+    "You write a weekly AI/ML newsletter for a single reader. "
+    "Write in English, factual and concrete, without marketing phrases. "
+    "Refer only to the provided items and do not invent details that are not in the title or summary."
 )
 
 OUTPUT_SCHEMA = {
@@ -50,11 +50,11 @@ def _build_prompt(profile: str, items: list[Item]) -> str:
         for item in items
     ]
     return (
-        f"Profil der Leserin bzw. des Lesers:\n{profile}\n\n"
-        f"Einträge dieser Woche (JSON):\n{json.dumps(entries, ensure_ascii=False, indent=1)}\n\n"
-        "Aufgaben:\n"
-        "1. editorial: 3 bis 5 Sätze, die die Woche einordnen und die wichtigsten Themen verbinden.\n"
-        "2. items: für jeden Eintrag (gleicher key) 1 bis 2 Sätze, warum er für dieses Profil relevant ist."
+        f"Reader profile:\n{profile}\n\n"
+        f"This week's items (JSON):\n{json.dumps(entries, ensure_ascii=False, indent=1)}\n\n"
+        "Tasks:\n"
+        "1. editorial: 3 to 5 sentences that put the week in context and connect the main themes.\n"
+        "2. items: for every item (same key) 1 to 2 sentences on why it is relevant to this profile."
     )
 
 
@@ -66,7 +66,7 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
     if not settings.llm.enabled or not items:
         return Annotations()
     if client is None and not os.environ.get("ANTHROPIC_API_KEY"):
-        logger.info("ANTHROPIC_API_KEY nicht gesetzt, Newsletter geht ohne Editorial raus.")
+        logger.info("ANTHROPIC_API_KEY not set, sending the newsletter without editorial.")
         return Annotations()
 
     try:
@@ -87,10 +87,10 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
             fallbacks="default",
         )
         if response.stop_reason == "refusal":
-            logger.warning("LLM-Schritt abgelehnt (%s), Newsletter geht ohne Editorial raus.", response.stop_details)
+            logger.warning("LLM step refused (%s), sending the newsletter without editorial.", response.stop_details)
             return Annotations()
         if response.stop_reason == "max_tokens":
-            logger.warning("LLM-Antwort abgeschnitten, Newsletter geht ohne Editorial raus.")
+            logger.warning("LLM response truncated, sending the newsletter without editorial.")
             return Annotations()
 
         text = next(b.text for b in response.content if b.type == "text")
@@ -101,5 +101,5 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
 
     except Exception as e:
         # The newsletter must go out regardless; log the reason and continue without annotations
-        logger.warning("LLM-Schritt fehlgeschlagen (%s: %s), Newsletter geht ohne Editorial raus.", type(e).__name__, e)
+        logger.warning("LLM step failed (%s: %s), sending the newsletter without editorial.", type(e).__name__, e)
         return Annotations()

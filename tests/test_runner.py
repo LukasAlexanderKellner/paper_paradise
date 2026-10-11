@@ -106,7 +106,7 @@ def test_one_source_down_is_named_in_mail(env, monkeypatch):
     monkeypatch.setattr(runner.sources, "fetch_github", fail)
     assert run(env) == 0
     msg, _ = env["sent"][0]
-    assert "Nicht verfügbar in dieser Ausgabe: GitHub" in msg.get_body(("plain",)).get_content()
+    assert "Not available in this issue: GitHub" in msg.get_body(("plain",)).get_content()
 
 
 def test_all_sources_down_sends_nothing(env, monkeypatch):

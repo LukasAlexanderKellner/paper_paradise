@@ -1,5 +1,5 @@
 paper_porn Weekly
-{{ period_start.strftime('%d.%m.%Y') }} – {{ period_end.strftime('%d.%m.%Y') }}
+{{ period_start.strftime('%Y-%m-%d') }} – {{ period_end.strftime('%Y-%m-%d') }}
 {% if editorial %}
 
 {{ editorial }}
@@ -13,16 +13,16 @@ paper_porn Weekly
 * {{ item.title }}
   {{ item.meta.get('abs_url') or item.url }}
 {% if item.source == 'huggingface' %}
-  {{ item.meta.upvotes }} Upvotes
+  {{ item.meta.upvotes }} upvotes
 {% elif item.source == 'github' %}
-  {{ item.meta.stars }} Stars, Relevanz {{ '%.2f'|format(item.score) }}
+  {{ item.meta.stars }} stars, relevance {{ '%.2f'|format(item.score) }}
 {% elif item.source == 'arxiv' %}
-  {{ item.meta.categories|join(', ') }}, Relevanz {{ '%.2f'|format(item.score) }}
+  {{ item.meta.categories|join(', ') }}, relevance {{ '%.2f'|format(item.score) }}
 {% elif item.source == 'blogs' %}
   {{ item.meta.feed }}
 {% endif %}
 {% if item.why %}
-  Warum relevant: {{ item.why }}
+  Why it matters: {{ item.why }}
 {% endif %}
 {% if item.summary %}
   {{ item.summary|truncate_words }}
@@ -32,8 +32,8 @@ paper_porn Weekly
 {% if failed_sources %}
 
 
-Nicht verfügbar in dieser Ausgabe: {{ failed_sources|join(', ') }}
+Not available in this issue: {{ failed_sources|join(', ') }}
 {% endif %}
 
 --
-Automatisch erstellt von paper_porn.
+Generated automatically by paper_porn.

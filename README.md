@@ -1,260 +1,260 @@
 # paper_porn
 
-Sammelt neue Inhalte aus der KI- und ML-Welt und filtert sie nach einem persönlichen Interessenprofil: arXiv-Paper, Hugging Face Daily Papers, neue GitHub-Repositories und Engineering-Blogbeiträge.
+Collects new content from the AI and ML world and filters it against a personal interest profile: arXiv papers, Hugging Face Daily Papers, new GitHub repositories and engineering blog posts.
 
-Das Projekt hat zwei Einstiegspunkte, die auf derselben Logik aufbauen:
+The project has two entry points built on the same logic:
 
-- **MCP-Server** (`paperporn_mcp.py`): Claude Desktop oder ein anderer MCP-Client ruft die Quellen bei Bedarf als Tools auf.
-- **Newsletter-Pipeline** (`runner.py`): Sammelt einmal pro Woche alle Quellen über 7 Tage, entfernt Dubletten und bereits verschickte Einträge und verschickt eine HTML-Mail. Läuft automatisch über GitHub Actions, jeden Montag um 7:00 Uhr (Europe/Berlin).
+- **MCP server** (`paperporn_mcp.py`): Claude Desktop or any other MCP client calls the sources as tools on demand.
+- **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email. Runs automatically via GitHub Actions every Monday at 7:00 (Europe/Berlin).
 
-## Quellen
+## Sources
 
-| Quelle | Auswahl | MCP-Tool |
+| Source | Selection | MCP tool |
 |---|---|---|
-| arXiv | Neueste Paper der konfigurierten Kategorien, nach semantischer Ähnlichkeit zum Profil sortiert | `fetch_filtered_arxiv_papers` |
-| Hugging Face Daily Papers | Nach Community-Upvotes sortiert | `fetch_huggingface_daily_papers` |
-| GitHub | Neue Repos mit mindestens `min_stars` Sternen, nach semantischer Ähnlichkeit sortiert | `fetch_github_trending_ml_repos` |
-| Blogs (PyTorch, Hugging Face) | Neueste Beiträge, abwechselnd aus allen Feeds | `fetch_ai_engineering_blogs` |
+| arXiv | Newest papers in the configured categories, ranked by semantic similarity to the profile | `fetch_filtered_arxiv_papers` |
+| Hugging Face Daily Papers | Ranked by community upvotes | `fetch_huggingface_daily_papers` |
+| GitHub | New repos with at least `min_stars` stars, ranked by semantic similarity | `fetch_github_trending_ml_repos` |
+| Blogs (PyTorch, Hugging Face) | Latest posts, alternating across all feeds | `fetch_ai_engineering_blogs` |
 
-Jeder Eintrag enthält einen Link zum vollständigen Paper, Repo oder Artikel.
+Every item includes a link to the full paper, repo or article.
 
-## Wie es funktioniert
+## How it works
 
-1. **Abrufen:** Jede Quelle holt mehr Kandidaten als sie zurückgibt.
-2. **Ausschlussfilter:** Einträge, deren Titel oder Beschreibung ein Wort aus `exclude_keywords` enthält, werden verworfen. Groß- und Kleinschreibung spielt dabei keine Rolle.
-3. **Semantisches Ranking** (arXiv und GitHub): Titel und Beschreibung werden mit [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) eingebettet und per Kosinus-Ähnlichkeit mit dem Profil verglichen (`Relevanz-Score`).
-4. **Top-k:** Nur die besten Einträge werden zurückgegeben.
+1. **Fetch:** Each source fetches more candidates than it returns.
+2. **Exclusion filter:** Items whose title or description contains a word from `exclude_keywords` are dropped. Matching is case-insensitive.
+3. **Semantic ranking** (arXiv and GitHub): Title and description are embedded with [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) and compared to the profile via cosine similarity (shown as `Relevance score`).
+4. **Top-k:** Only the best items are returned.
 
-Die Pipeline ergänzt drei weitere Schritte:
+The pipeline adds three more steps:
 
-5. **Dubletten:** Dasselbe Paper kann bei Hugging Face und arXiv auftauchen. Erkannt wird es an der arXiv-ID (ohne Versionsnummer), sonst an der URL. Es bleibt im Hugging-Face-Abschnitt.
-6. **Bereits verschickt:** Alles, was in [`state/sent_items.json`](state/sent_items.json) steht, wird ausgefiltert. Die Datei wird erst nach erfolgreichem Versand aktualisiert. Einträge, die älter als 180 Tage sind, werden daraus gelöscht.
-7. **Optionales Editorial:** Ein einzelner Aufruf der Claude API schreibt eine kurze Einordnung der Woche und pro Eintrag ein bis zwei Sätze, warum er relevant ist. Ohne `ANTHROPIC_API_KEY`, oder wenn der Aufruf fehlschlägt, geht der Newsletter ohne diesen Teil raus.
+5. **Duplicates:** The same paper can appear on both Hugging Face and arXiv. It is identified by its arXiv ID (without version number), otherwise by its URL, and kept in the Hugging Face section.
+6. **Already sent:** Everything listed in [`state/sent_items.json`](state/sent_items.json) is filtered out. The file is only updated after a successful send. Entries older than 180 days are removed from it.
+7. **Optional editorial:** A single Claude API call writes a short overview of the week and one or two sentences per item explaining why it is relevant. Without `ANTHROPIC_API_KEY`, or if the call fails, the newsletter goes out without this part.
 
-Die MCP-Tools nutzen die State-Datei nicht. Sie zeigen immer den aktuellen Stand.
+The MCP tools do not use the state file. They always show the current state.
 
-## Projektstruktur
+## Project structure
 
 ```
 paper_porn/
-├── config.toml              # Profil, Filter, Quellen, Newsletter-Einstellungen
-├── .env.example             # Vorlage für Zugangsdaten (lokal als .env)
-├── paperporn_mcp.py         # MCP-Server: dünner Wrapper, formatiert Ergebnisse als Text
-├── runner.py                # Newsletter-Pipeline
-├── core/                    # Abruf und Ranking, ohne MCP-Abhängigkeit
-│   ├── config.py            # lädt config.toml
+├── config.toml              # profile, filters, sources, newsletter settings
+├── .env.example             # template for credentials (locally as .env)
+├── paperporn_mcp.py         # MCP server: thin wrapper that formats results as text
+├── runner.py                # newsletter pipeline
+├── core/                    # fetching and ranking, no MCP dependency
+│   ├── config.py            # loads config.toml
 │   ├── models.py            # Item, SourceError
-│   ├── ranking.py           # Embedding-Modell, Ausschlussfilter
-│   └── sources.py           # die vier Quellen
-├── pipeline/                # nur für den Newsletter
+│   ├── ranking.py           # embedding model, exclusion filter
+│   └── sources.py           # the four sources
+├── pipeline/                # newsletter only
 │   ├── dedupe.py
 │   ├── state.py
 │   ├── llm.py
 │   ├── render.py
 │   ├── mailer.py
-│   └── templates/           # Jinja2-Templates (HTML und Text)
-├── state/sent_items.json    # bereits verschickte Einträge (wird von Actions committet)
+│   └── templates/           # Jinja2 templates (HTML and plain text)
+├── state/sent_items.json    # items already sent (committed by Actions)
 ├── tests/
 └── .github/workflows/newsletter.yml
 ```
 
 ## Installation
 
-Voraussetzung ist Python 3.11 oder neuer (entwickelt mit 3.14).
+Requires Python 3.11 or newer (developed with 3.14).
 
 ```bash
 git clone <repo-url> paper_porn
 cd paper_porn
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt   # enthält requirements.txt und pytest
+pip install -r requirements-dev.txt   # includes requirements.txt and pytest
 ```
 
-Beim ersten Start lädt `sentence-transformers` das Embedding-Modell herunter (ca. 90 MB).
+On first start, `sentence-transformers` downloads the embedding model (about 90 MB).
 
-## Konfiguration
+## Configuration
 
 ### `config.toml`
 
-Alle inhaltlichen Einstellungen stehen in [`config.toml`](config.toml). Die Datei liegt im Repo, deshalb gehören **keine Zugangsdaten und keine Mailadressen** hinein.
+All content settings live in [`config.toml`](config.toml). The file is part of the repo, so it must **not contain credentials or email addresses**.
 
-| Abschnitt | Schlüssel | Bedeutung |
+| Section | Key | Meaning |
 |---|---|---|
-| `[profile]` | `description` | Deine Interessen als Freitext, Grundlage für das Ranking |
-| | `exclude_keywords` | Begriffe, die einen Eintrag ausschließen (gilt für alle Quellen) |
-| `[sources]` | `arxiv_categories` | arXiv-Kategorien, z. B. `cs.LG` |
-| | `github_topics` | GitHub-Topics, jedes wird einzeln abgefragt |
-| | `blog_feeds` | RSS-Feed-URLs |
-| `[newsletter]` | `window_days` | Zeitfenster in Tagen (Standard: 7) |
-| | `subject` | Betreffzeile |
-| | `sender` | Absenderadresse, leer bedeutet `SMTP_USER` |
-| | `state_file`, `state_retention_days` | State-Datei und wie lange Einträge darin bleiben |
-| `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Anzahl Einträge pro Abschnitt |
-| `[newsletter.arxiv]` | `max_fetch` | Obergrenze für die Wochenabfrage (eine Woche hat etwa 2.000–2.500 Paper) |
-| `[newsletter.github]` | `min_stars`, `max_fetch` | Mindestanzahl Sterne, Kandidaten pro Topic |
-| `[llm]` | `enabled`, `model`, `effort` | Editorial an/aus, Claude-Modell, Aufwand (`low` bis `max`) |
+| `[profile]` | `description` | Your interests as free text, the basis for ranking |
+| | `exclude_keywords` | Terms that exclude an item (applies to all sources) |
+| `[sources]` | `arxiv_categories` | arXiv categories, e.g. `cs.LG` |
+| | `github_topics` | GitHub topics, each queried separately |
+| | `blog_feeds` | RSS feed URLs |
+| `[newsletter]` | `window_days` | Time window in days (default: 7) |
+| | `subject` | Subject line |
+| | `sender` | Sender address, empty means `SMTP_USER` |
+| | `state_file`, `state_retention_days` | State file and how long entries stay in it |
+| `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Number of items per section |
+| `[newsletter.arxiv]` | `max_fetch` | Upper limit for the weekly query (a week has roughly 2,000–2,500 papers) |
+| `[newsletter.github]` | `min_stars`, `max_fetch` | Minimum stars, candidates per topic |
+| `[llm]` | `enabled`, `model`, `effort` | Editorial on/off, Claude model, effort (`low` to `max`) |
 
-Die Ausschlusswörter werden als Textteile gesucht, nicht als ganze Wörter. Ein kurzes Keyword wie `"rl"` würde also auch „world“ ausschließen.
+Exclusion keywords match substrings, not whole words. A short keyword like `"rl"` would also exclude "world".
 
-### Umgebungsvariablen
+### Environment variables
 
-Zugangsdaten und Empfänger kommen ausschließlich aus Umgebungsvariablen. Lokal stehen sie in `.env`, die Datei wird nicht committet:
+Credentials and recipients come exclusively from environment variables. Locally they live in `.env`, which is not committed:
 
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Pflicht | Bedeutung |
+| Variable | Required | Meaning |
 |---|---|---|
-| `SMTP_HOST`, `SMTP_PORT` | für den Versand | SMTP-Server. Port 465 nutzt SSL, jeder andere Port STARTTLS (z. B. 587) |
-| `SMTP_USER`, `SMTP_PASSWORD` | für den Versand | Login (bei Gmail ein [App-Passwort](https://myaccount.google.com/apppasswords)) |
-| `NEWSLETTER_RECIPIENTS` | für den Versand | Empfänger, kommagetrennt. Sie bekommen die Mail als Bcc und sehen sich gegenseitig nicht |
-| `NEWSLETTER_SENDER` | nein | Überschreibt `sender` aus `config.toml` |
-| `ANTHROPIC_API_KEY` | nein | Aktiviert Editorial und „Warum relevant“-Texte |
-| `GITHUB_TOKEN` | nein | Höheres Rate-Limit für die GitHub-Suche (ohne Token: 10 Anfragen pro Minute) |
+| `SMTP_HOST`, `SMTP_PORT` | for sending | SMTP server. Port 465 uses SSL, any other port uses STARTTLS (e.g. 587) |
+| `SMTP_USER`, `SMTP_PASSWORD` | for sending | Login (for Gmail, an [app password](https://myaccount.google.com/apppasswords)) |
+| `NEWSLETTER_RECIPIENTS` | for sending | Recipients, comma-separated. They receive the mail as Bcc and cannot see each other |
+| `NEWSLETTER_SENDER` | no | Overrides `sender` from `config.toml` |
+| `ANTHROPIC_API_KEY` | no | Enables the editorial and "why it matters" texts |
+| `GITHUB_TOKEN` | no | Higher rate limit for GitHub search (without a token: 10 requests per minute) |
 
-## Newsletter lokal testen
+## Testing the newsletter locally
 
-Es gibt zwei Arten von Testlauf. Beide rufen alle Quellen live ab und dauern etwa eine Minute, den größten Teil davon braucht die arXiv-Abfrage. Bei **beiden bleibt die State-Datei unverändert**, der nächste echte Newsletter enthält die getesteten Einträge also trotzdem.
+There are two kinds of test run. Both fetch all sources live and take about a minute, most of it spent on the arXiv query. **Neither changes the state file**, so the next real newsletter still includes the tested items.
 
-| | Dry-Run | Testversand |
+| | Dry run | Test send |
 |---|---|---|
-| Befehl | `python runner.py --dry-run` | `python runner.py --test-to <adresse>` |
-| Verschickt eine Mail | nein | ja, nur an `<adresse>` |
-| Braucht SMTP-Daten in `.env` | nein | ja |
-| Ergebnis | Dateien in `out/` | Mail mit `[TEST]` im Betreff |
-| Prüft | Inhalt und Layout | zusätzlich SMTP-Zugang, Absender und Darstellung im Mailprogramm |
+| Command | `python runner.py --dry-run` | `python runner.py --test-to <address>` |
+| Sends an email | no | yes, only to `<address>` |
+| Needs SMTP settings in `.env` | no | yes |
+| Result | Files in `out/` | Email with `[TEST]` in the subject |
+| Checks | Content and layout | Also SMTP access, sender and rendering in your mail client |
 
-### 1. Dry-Run: Newsletter als Datei erzeugen
+### 1. Dry run: render the newsletter to a file
 
 ```bash
 source .venv/bin/activate
 python runner.py --dry-run
 ```
 
-1. Im Log siehst du pro Quelle die Zahl der Kandidaten und am Ende den Pfad der erzeugten Dateien.
-2. Öffne die HTML-Datei im Browser, z. B. auf macOS mit `open out/newsletter-<datum>.html`.
-3. `out/newsletter-<datum>.txt` enthält die Textversion, die Mailprogramme ohne HTML anzeigen.
+1. The log shows the number of candidates per source and, at the end, the path of the generated files.
+2. Open the HTML file in your browser, e.g. on macOS with `open out/newsletter-<date>.html`.
+3. `out/newsletter-<date>.txt` contains the plain-text version shown by mail clients without HTML.
 
-Fällt eine Quelle aus, steht sie im Log als `ERROR` und in der Datei unter „Nicht verfügbar in dieser Ausgabe“.
+If a source fails, it appears in the log as `ERROR` and in the file under "Not available in this issue".
 
-### 2. Testversand an eine echte Adresse
+### 2. Test send to a real address
 
-1. Lege die `.env` an, falls noch nicht geschehen (`cp .env.example .env`). Trage mindestens `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` und `SMTP_PASSWORD` ein.
-2. Schicke den Newsletter an eine Testadresse:
+1. Create the `.env` if you haven't yet (`cp .env.example .env`). Fill in at least `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD`.
+2. Send the newsletter to a test address:
 
    ```bash
-   python runner.py --test-to deine-test-adresse@example.com
+   python runner.py --test-to your-test-address@example.com
    ```
 
-   Die Mail geht **nur** an diese Adresse, `NEWSLETTER_RECIPIENTS` wird ignoriert.
-3. Im Log sollte am Ende `Newsletter mit N Einträgen an 1 Empfänger verschickt.` stehen, danach `Testversand: State-Datei bleibt unverändert.`
-4. Im Postfach kommt die Mail mit dem Betreff `[TEST] paper_porn Weekly: …` an. Findest du sie nicht, schau in den Spam-Ordner.
+   The mail goes **only** to this address; `NEWSLETTER_RECIPIENTS` is ignored.
+3. The log should end with `Sent newsletter with N items to 1 recipient(s).` followed by `Test send: state file unchanged.`
+4. The mail arrives with the subject `[TEST] paper_porn Weekly: …`. If you can't find it, check your spam folder.
 
-Typische Fehler beim Testversand:
+Common problems with the test send:
 
-- **Exit-Code 4, „Fehlende Umgebungsvariablen“:** In der `.env` fehlt eine SMTP-Variable.
-- **`SMTPAuthenticationError`:** Benutzername oder Passwort stimmen nicht. Bei Gmail und vielen anderen Anbietern brauchst du ein App-Passwort statt deines normalen Passworts.
-- **Timeout oder `ConnectionRefusedError`:** Host oder Port sind falsch. Üblich sind 587 (STARTTLS) und 465 (SSL).
-- **Kein Editorial in der Mail:** `ANTHROPIC_API_KEY` ist nicht gesetzt. Der Newsletter funktioniert trotzdem, nur ohne Einordnung und „Warum relevant“.
+- **Exit code 4, "Missing environment variables":** An SMTP variable is missing from `.env`.
+- **`SMTPAuthenticationError`:** Username or password is wrong. Gmail and many other providers require an app password instead of your regular password.
+- **Timeout or `ConnectionRefusedError`:** Host or port is wrong. Common ports are 587 (STARTTLS) and 465 (SSL).
+- **No editorial in the mail:** `ANTHROPIC_API_KEY` is not set. The newsletter still works, just without the overview and "why it matters" texts.
 
-### Weitere Optionen
+### More options
 
 ```bash
-python runner.py --dry-run --no-llm          # ohne Claude-Aufruf
-python runner.py --dry-run --output-dir /tmp # anderer Zielordner
-python runner.py                             # echter Versand an NEWSLETTER_RECIPIENTS, aktualisiert state/sent_items.json
+python runner.py --dry-run --no-llm          # without the Claude call
+python runner.py --dry-run --output-dir /tmp # different output folder
+python runner.py                             # real send to NEWSLETTER_RECIPIENTS, updates state/sent_items.json
 ```
 
-Starte den echten Versand lokal nur, wenn du das wirklich willst. Er markiert alle enthaltenen Einträge als verschickt, und der automatische Newsletter am Montag lässt sie dann weg.
+Only run a real send locally if you actually mean it. It marks all included items as sent, and the automatic Monday newsletter will then skip them.
 
-**Exit-Codes:**
+**Exit codes:**
 
-| Code | Bedeutung |
+| Code | Meaning |
 |---|---|
-| 0 | Erfolgreich, oder es gab keine neuen Einträge |
-| 2 | Alle Quellen ausgefallen, es wurde nichts verschickt |
-| 3 | Versand fehlgeschlagen, State unverändert |
-| 4 | SMTP-Daten oder Empfänger fehlen |
+| 0 | Success, or there were no new items |
+| 2 | All sources failed, nothing was sent |
+| 3 | Sending failed, state unchanged |
+| 4 | SMTP settings or recipients missing |
 
-Fällt nur ein Teil der Quellen aus, geht der Newsletter mit den übrigen raus und nennt die fehlenden am Ende der Mail.
+If only some sources fail, the newsletter goes out with the remaining ones and lists the missing sources at the end of the mail.
 
-## Automatischer Versand mit GitHub Actions
+## Automatic sending with GitHub Actions
 
-Der Workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.yml) läuft jeden Montag um 7:00 Uhr Berliner Zeit.
+The workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.yml) runs every Monday at 7:00 Berlin time.
 
-- **Sommer- und Winterzeit:** GitHub-Cron rechnet in UTC. Deshalb sind zwei Zeitpunkte eingetragen (5:00 und 6:00 UTC). Ein vorgeschalteter Job prüft den aktuellen Berliner UTC-Offset und lässt nur den passenden Lauf weiterlaufen. Das funktioniert auch dann, wenn GitHub den Start verzögert.
-- **Caching:** pip-Pakete und das Embedding-Modell werden zwischen den Läufen gecacht. torch wird als CPU-Variante installiert.
-- **State-Datei:** Nach erfolgreichem Versand wird `state/sent_items.json` als `github-actions[bot]` zurückcommittet.
+- **Daylight saving time:** GitHub cron runs in UTC, so two times are scheduled (5:00 and 6:00 UTC). A preceding job checks Berlin's current UTC offset and only lets the matching run continue. This also works when GitHub starts the run late.
+- **Caching:** pip packages and the embedding model are cached between runs. torch is installed as the CPU-only build.
+- **State file:** After a successful send, `state/sent_items.json` is committed back by `github-actions[bot]`.
 
-### Einrichtung
+### Setup
 
-1. Unter **Settings → Secrets and variables → Actions → New repository secret** diese Secrets anlegen:
+1. Under **Settings → Secrets and variables → Actions → New repository secret**, create these secrets:
 
-   | Secret | Pflicht |
+   | Secret | Required |
    |---|---|
-   | `SMTP_HOST` | ja |
-   | `SMTP_PORT` | ja |
-   | `SMTP_USER` | ja |
-   | `SMTP_PASSWORD` | ja |
-   | `NEWSLETTER_RECIPIENTS` | ja |
-   | `NEWSLETTER_SENDER` | nein |
-   | `ANTHROPIC_API_KEY` | nein |
+   | `SMTP_HOST` | yes |
+   | `SMTP_PORT` | yes |
+   | `SMTP_USER` | yes |
+   | `SMTP_PASSWORD` | yes |
+   | `NEWSLETTER_RECIPIENTS` | yes |
+   | `NEWSLETTER_SENDER` | no |
+   | `ANTHROPIC_API_KEY` | no |
 
-   `GITHUB_TOKEN` stellt GitHub automatisch bereit.
+   GitHub provides `GITHUB_TOKEN` automatically.
 
-2. Unter **Settings → Actions → General → Workflow permissions** muss **Read and write permissions** erlaubt sein, damit der Workflow die State-Datei committen darf. Der Workflow fordert `contents: write` zwar selbst an, diese Einstellung kann es aber auf Organisationsebene blockieren.
+2. Under **Settings → Actions → General → Workflow permissions**, **Read and write permissions** must be allowed so the workflow can commit the state file. The workflow requests `contents: write` itself, but this setting can block it at the organization level.
 
-3. Testlauf ohne Versand: **Actions → Weekly newsletter → Run workflow**, Haken bei „Nur HTML erzeugen“ setzen. Die Vorschau liegt danach als Artifact `newsletter-preview` am Lauf.
+3. Test run without sending: **Actions → Weekly newsletter → Run workflow**, then tick "Dry run: render HTML only (as artifact), send nothing". The preview is attached to the run as the artifact `newsletter-preview`.
 
-4. Ohne den Haken wird die Mail echt verschickt.
+4. Without the checkbox, the mail is actually sent.
 
-Hinweis: GitHub deaktiviert geplante Workflows in Repositories, in denen 60 Tage lang nichts passiert. Die wöchentlichen State-Commits zählen als Aktivität. Wochen ohne neue Einträge erzeugen allerdings keinen Commit.
+Note: GitHub disables scheduled workflows in repositories with no activity for 60 days. The weekly state commits count as activity, but weeks without new items produce no commit.
 
-## MCP-Server mit Claude Desktop verbinden
+## Connecting the MCP server to Claude Desktop
 
-Teste den Server zuerst einmal manuell, damit das Embedding-Modell heruntergeladen wird:
+First run the server once manually so the embedding model gets downloaded:
 
 ```bash
 .venv/bin/python paperporn_mcp.py
 ```
 
-Sobald `Lade Semantic-Embedding-Modell...` erscheint und keine Fehlermeldung folgt, läuft der Server und wartet auf Eingaben über stdin. Beenden mit `Ctrl+C`.
+Once `Loading semantic embedding model...` appears with no error after it, the server is running and waiting for input on stdin. Stop it with `Ctrl+C`.
 
-1. Öffne in Claude Desktop **Einstellungen → Entwickler → Konfiguration bearbeiten**. Alternativ kannst du die Datei direkt öffnen:
+1. In Claude Desktop, open **Settings → Developer → Edit Config**. Alternatively, open the file directly:
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-2. Trage den Server unter `mcpServers` ein. Beide Pfade müssen **absolut** sein und auf die Python-Version im virtuellen Environment zeigen:
+2. Add the server under `mcpServers`. Both paths must be **absolute** and point to the Python inside the virtual environment:
 
    ```json
    {
      "mcpServers": {
        "paperporn": {
-         "command": "/ABSOLUTER/PFAD/ZU/paper_porn/.venv/bin/python",
-         "args": ["/ABSOLUTER/PFAD/ZU/paper_porn/paperporn_mcp.py"],
+         "command": "/ABSOLUTE/PATH/TO/paper_porn/.venv/bin/python",
+         "args": ["/ABSOLUTE/PATH/TO/paper_porn/paperporn_mcp.py"],
          "env": {
-           "GITHUB_TOKEN": "optional_dein_token"
+           "GITHUB_TOKEN": "optional_your_token"
          }
        }
      }
    }
    ```
 
-   Den absoluten Pfad bekommst du mit `pwd` im Projektverzeichnis. Unter Windows lautet der Python-Pfad `...\\.venv\\Scripts\\python.exe`. Den `env`-Block kannst du weglassen, wenn du keinen Token verwendest.
+   Get the absolute path by running `pwd` in the project directory. On Windows the Python path is `...\\.venv\\Scripts\\python.exe`. You can omit the `env` block if you don't use a token.
 
-3. Beende Claude Desktop vollständig und starte es neu.
+3. Quit Claude Desktop completely and restart it.
 
-4. Im Chat sollten die vier Tools jetzt über das Tool-Symbol im Eingabefeld erscheinen. Zum Testen eignet sich zum Beispiel:
+4. The four tools should now appear under the tools icon in the chat input. A good test prompt:
 
-   > Stell mir mit den paperporn-Tools einen kurzen Überblick zusammen: die 3 relevantesten arXiv-Paper, die Top-3 Hugging Face Papers, 3 neue GitHub-Repos und die neuesten Blogbeiträge.
+   > Using the paperporn tools, give me a short overview: the 3 most relevant arXiv papers, the top 3 Hugging Face papers, 3 new GitHub repos and the latest blog posts.
 
-### Fehlersuche
+### Troubleshooting
 
-- **Server erscheint nicht oder zeigt einen Fehler:** Die Logs findest du unter macOS in `~/Library/Logs/Claude/mcp-server-paperporn.log` und unter Windows in `%APPDATA%\Claude\logs\`.
-- **Timeout beim ersten Start:** Meist lädt das Embedding-Modell noch. Starte den Server einmal manuell und dann Claude Desktop neu.
-- **`ModuleNotFoundError`:** `command` zeigt wahrscheinlich auf das System-Python statt auf `.venv/bin/python`.
-- **GitHub-Fehler 403:** Das Rate-Limit ist erreicht. Warte eine Minute oder setze `GITHUB_TOKEN`.
+- **Server doesn't show up or shows an error:** Logs are in `~/Library/Logs/Claude/mcp-server-paperporn.log` on macOS and in `%APPDATA%\Claude\logs\` on Windows.
+- **Timeout on first start:** Usually the embedding model is still downloading. Run the server once manually, then restart Claude Desktop.
+- **`ModuleNotFoundError`:** `command` probably points to the system Python instead of `.venv/bin/python`.
+- **GitHub error 403:** The rate limit was hit. Wait a minute or set `GITHUB_TOKEN`.
 
 ## Tests
 
@@ -262,4 +262,8 @@ Sobald `Lade Semantic-Embedding-Modell...` erscheint und keine Fehlermeldung fol
 python -m pytest
 ```
 
-Die Tests brauchen keinen Netzwerkzugriff. Sie decken Deduplizierung, State-Filter, Template-Rendering, das Fehlerverhalten des Runners (eine oder alle Quellen fallen aus, Versand schlägt fehl), den LLM-Schritt mit einem simulierten Client und das Ausgabeformat der MCP-Tools ab.
+The tests need no network access. They cover deduplication, the state filter, template rendering, the runner's error handling (one or all sources failing, sending failing), the LLM step with a simulated client, and the output format of the MCP tools.
+
+## License
+
+[MIT](LICENSE)

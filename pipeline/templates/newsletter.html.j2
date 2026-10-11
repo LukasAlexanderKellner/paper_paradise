@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:8px;">
   <tr><td style="padding:28px 28px 8px 28px;">
     <h1 style="margin:0;font-size:24px;line-height:1.3;">paper_porn Weekly</h1>
-    <p style="margin:6px 0 0 0;font-size:14px;color:#71717a;">{{ period_start.strftime('%d.%m.%Y') }} – {{ period_end.strftime('%d.%m.%Y') }}</p>
+    <p style="margin:6px 0 0 0;font-size:14px;color:#71717a;">{{ period_start.strftime('%Y-%m-%d') }} – {{ period_end.strftime('%Y-%m-%d') }}</p>
   </td></tr>
 {% if editorial %}
   <tr><td style="padding:16px 28px 0 28px;">
@@ -26,12 +26,12 @@
   <tr><td style="padding:14px 28px 0 28px;">
     <a href="{{ item.meta.get('abs_url') or item.url }}" style="font-size:16px;font-weight:600;color:#1d4ed8;text-decoration:none;line-height:1.4;">{{ item.title }}</a>
     <p style="margin:4px 0 0 0;font-size:13px;color:#71717a;">
-{% if item.source == 'huggingface' %}▲ {{ item.meta.upvotes }} Upvotes{% elif item.source == 'github' %}★ {{ item.meta.stars }} Stars · Relevanz {{ '%.2f'|format(item.score) }}{% elif item.source == 'arxiv' %}{{ item.meta.categories|join(', ') }} · Relevanz {{ '%.2f'|format(item.score) }}{% elif item.source == 'blogs' %}{{ item.meta.feed }}{% endif %}
-{% if item.date %} · {{ item.date.strftime('%d.%m.%Y') }}{% endif %}
+{% if item.source == 'huggingface' %}▲ {{ item.meta.upvotes }} upvotes{% elif item.source == 'github' %}★ {{ item.meta.stars }} stars · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'arxiv' %}{{ item.meta.categories|join(', ') }} · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'blogs' %}{{ item.meta.feed }}{% endif %}
+{% if item.date %} · {{ item.date.strftime('%Y-%m-%d') }}{% endif %}
 {% if item.source == 'arxiv' %} · <a href="{{ item.url }}" style="color:#71717a;">PDF</a>{% endif %}
     </p>
 {% if item.why %}
-    <p style="margin:6px 0 0 0;font-size:14px;line-height:1.5;"><strong>Warum relevant:</strong> {{ item.why }}</p>
+    <p style="margin:6px 0 0 0;font-size:14px;line-height:1.5;"><strong>Why it matters:</strong> {{ item.why }}</p>
 {% endif %}
 {% if item.summary %}
     <p style="margin:6px 0 0 0;font-size:14px;line-height:1.5;color:#3f3f46;">{{ item.summary|truncate_words }}</p>
@@ -41,11 +41,11 @@
 {% endfor %}
 {% if failed_sources %}
   <tr><td style="padding:24px 28px 0 28px;">
-    <p style="margin:0;padding:10px 14px;background:#fef3c7;border-radius:6px;font-size:13px;color:#92400e;">Nicht verfügbar in dieser Ausgabe: {{ failed_sources|join(', ') }}</p>
+    <p style="margin:0;padding:10px 14px;background:#fef3c7;border-radius:6px;font-size:13px;color:#92400e;">Not available in this issue: {{ failed_sources|join(', ') }}</p>
   </td></tr>
 {% endif %}
   <tr><td style="padding:24px 28px 28px 28px;">
-    <p style="margin:0;font-size:12px;color:#a1a1aa;">Automatisch erstellt von paper_porn.</p>
+    <p style="margin:0;font-size:12px;color:#a1a1aa;">Generated automatically by paper_porn.</p>
   </td></tr>
 </table>
 </td></tr>

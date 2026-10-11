@@ -60,9 +60,9 @@ def fetch_all(settings: Settings, now: datetime) -> tuple[dict[str, list[Item]],
     for source, fetch in fetchers.items():
         try:
             items_by_source[source] = fetch(nl.top_k[source] * CANDIDATE_FACTOR)
-            logger.info("%s: %d Kandidaten", source, len(items_by_source[source]))
+            logger.info("%s: %d candidates", source, len(items_by_source[source]))
         except Exception as e:
-            logger.error("%s fehlgeschlagen: %s: %s", source, type(e).__name__, e)
+            logger.error("%s failed: %s: %s", source, type(e).__name__, e)
             failed.append(source)
     return items_by_source, failed
 
@@ -74,17 +74,17 @@ def select(settings: Settings, items_by_source: dict[str, list[Item]], state: di
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Wöchentlicher paper_porn-Newsletter")
+    parser = argparse.ArgumentParser(description="Weekly paper_porn newsletter")
     parser.add_argument("--dry-run", action="store_true",
-                        help="HTML/Text lokal schreiben statt zu versenden, State-Datei nicht verändern")
-    parser.add_argument("--test-to", metavar="ADRESSE",
-                        help="Testversand nur an diese Adresse, mit [TEST] im Betreff, State-Datei nicht verändern")
-    parser.add_argument("--output-dir", type=Path, default=ROOT_DIR / "out", help="Zielordner für --dry-run")
-    parser.add_argument("--no-llm", action="store_true", help="LLM-Schritt überspringen")
-    parser.add_argument("--config", type=Path, default=None, help="Pfad zur config.toml")
+                        help="write HTML/text locally instead of sending, leave the state file unchanged")
+    parser.add_argument("--test-to", metavar="ADDRESS",
+                        help="test send to this address only, with [TEST] in the subject, leave the state file unchanged")
+    parser.add_argument("--output-dir", type=Path, default=ROOT_DIR / "out", help="output folder for --dry-run")
+    parser.add_argument("--no-llm", action="store_true", help="skip the LLM step")
+    parser.add_argument("--config", type=Path, default=None, help="path to config.toml")
     args = parser.parse_args(argv)
     if args.dry_run and args.test_to:
-        parser.error("--dry-run und --test-to schließen sich aus")
+        parser.error("--dry-run and --test-to are mutually exclusive")
 
     logging.basicConfig(stream=sys.stderr, level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     for name in ("runner", "core", "pipeline"):
@@ -106,14 +106,14 @@ def main(argv: list[str] | None = None) -> int:
 
     items_by_source, failed = fetch_all(settings, now)
     if not items_by_source:
-        logger.error("Alle Quellen sind ausgefallen, es wird nichts verschickt.")
+        logger.error("All sources failed, nothing will be sent.")
         return EXIT_ALL_SOURCES_FAILED
 
     state = load_state(settings.newsletter.state_file)
     selected = select(settings, items_by_source, state)
     all_items = [item for items in selected.values() for item in items]
     if not all_items:
-        logger.info("Keine neuen Einträge seit dem letzten Versand, es wird nichts verschickt.")
+        logger.info("No new items since the last send, nothing will be sent.")
         return EXIT_OK
 
     annotations = annotate(settings, all_items) if not args.no_llm else None
@@ -134,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
         stem = args.output_dir / f"newsletter-{now:%Y-%m-%d}"
         stem.with_suffix(".html").write_text(html, encoding="utf-8")
         stem.with_suffix(".txt").write_text(text, encoding="utf-8")
-        logger.info("Dry-Run: %d Einträge nach %s.html/.txt geschrieben, State unverändert.", len(all_items), stem)
+        logger.info("Dry run: wrote %d items to %s.html/.txt, state unchanged.", len(all_items), stem)
         return EXIT_OK
 
     subject = f"[TEST] {settings.newsletter.subject}" if args.test_to else settings.newsletter.subject
@@ -142,12 +142,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         send_message(msg, recipients, smtp)
     except Exception as e:
-        logger.error("Versand fehlgeschlagen, State bleibt unverändert: %s: %s", type(e).__name__, e)
+        logger.error("Sending failed, state unchanged: %s: %s", type(e).__name__, e)
         return EXIT_SEND_FAILED
-    logger.info("Newsletter mit %d Einträgen an %d Empfänger verschickt.", len(all_items), len(recipients))
+    logger.info("Sent newsletter with %d items to %d recipient(s).", len(all_items), len(recipients))
 
     if args.test_to:
-        logger.info("Testversand: State-Datei bleibt unverändert.")
+        logger.info("Test send: state file unchanged.")
         return EXIT_OK
 
     # Only after a successful send

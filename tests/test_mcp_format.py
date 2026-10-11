@@ -17,18 +17,18 @@ def test_github_format(monkeypatch):
     item = make_item("github", "https://github.com/a/b", title="a/b", url="https://github.com/a/b", score=0.442,
                      meta={"stars": 64, "created": "2026-10-07", "description": None, "since": "2026-10-04"})
     assert server.format_github([item]) == (
-        "=== Top 1 neue ML Repositories auf GitHub (seit 2026-10-04) ===\n\n"
-        "Repo: a/b\nRelevanz-Score: 0.442\nStars: ⭐ 64\nErstellt: 2026-10-07\n"
-        "URL: https://github.com/a/b\nBeschreibung: None\n" + "-" * 40
+        "=== Top 1 new ML repositories on GitHub (since 2026-10-04) ===\n\n"
+        "Repo: a/b\nRelevance score: 0.442\nStars: ⭐ 64\nCreated: 2026-10-07\n"
+        "URL: https://github.com/a/b\nDescription: None\n" + "-" * 40
     )
 
 
 def test_empty_messages(monkeypatch):
     server = load_server(monkeypatch)
-    assert server.format_arxiv([]) == "Keine passenden arXiv Paper nach der Filterung gefunden."
-    assert server.format_huggingface([]) == "Keine aktuellen Hugging Face Papers gefunden."
-    assert server.format_github([]) == "Keine passenden GitHub Repositories gefunden."
-    assert server.format_blogs([]) == "Keine aktuellen Blog-Beiträge gefunden."
+    assert server.format_arxiv([]) == "No matching arXiv papers found after filtering."
+    assert server.format_huggingface([]) == "No current Hugging Face papers found."
+    assert server.format_github([]) == "No matching GitHub repositories found."
+    assert server.format_blogs([]) == "No recent blog posts found."
 
 
 def test_tool_error_messages(monkeypatch):
@@ -41,6 +41,6 @@ def test_tool_error_messages(monkeypatch):
         return f
 
     monkeypatch.setattr(server.sources, "fetch_huggingface", raise_(SourceStatusError(503)))
-    assert server.fetch_huggingface_daily_papers() == "Fehler beim Abrufen von Hugging Face: Status Code 503"
+    assert server.fetch_huggingface_daily_papers() == "Error fetching Hugging Face: status code 503"
     monkeypatch.setattr(server.sources, "fetch_github", raise_(SourceError("pytorch: Status 403")))
-    assert server.fetch_github_trending_ml_repos() == "Fehler bei GitHub API Abfrage: pytorch: Status 403"
+    assert server.fetch_github_trending_ml_repos() == "GitHub API query failed: pytorch: Status 403"

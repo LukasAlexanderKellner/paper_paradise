@@ -25,16 +25,16 @@ get_embedder()
 
 def format_arxiv(items: list[Item]) -> str:
     if not items:
-        return "Keine passenden arXiv Paper nach der Filterung gefunden."
+        return "No matching arXiv papers found after filtering."
 
-    output = [f"=== Top {len(items)} relevante arXiv Paper für dein Profil ==="]
+    output = [f"=== Top {len(items)} relevant arXiv papers for your profile ==="]
     for p in items:
         output.append(
-            f"Titel: {p.title}\n"
-            f"Relevanz-Score: {p.score}\n"
-            f"Kategorien: {', '.join(p.meta['categories'])}\n"
+            f"Title: {p.title}\n"
+            f"Relevance score: {p.score}\n"
+            f"Categories: {', '.join(p.meta['categories'])}\n"
             f"URL: {p.url}\n"
-            f"Abstract (Auszug): {p.summary[:400]}...\n"
+            f"Abstract (excerpt): {p.summary[:400]}...\n"
             f"{'-'*40}"
         )
     return "\n\n".join(output)
@@ -42,12 +42,12 @@ def format_arxiv(items: list[Item]) -> str:
 
 def format_huggingface(items: list[Item]) -> str:
     if not items:
-        return "Keine aktuellen Hugging Face Papers gefunden."
+        return "No current Hugging Face papers found."
 
     output = [f"=== Top {len(items)} Hugging Face Community Papers ==="]
     for p in items:
         output.append(
-            f"Titel: {p.title}\n"
+            f"Title: {p.title}\n"
             f"Upvotes: {p.meta['upvotes']}\n"
             f"arXiv ID / URL: {p.url}\n"
             f"Summary: {p.summary[:350]}...\n"
@@ -58,17 +58,17 @@ def format_huggingface(items: list[Item]) -> str:
 
 def format_github(items: list[Item]) -> str:
     if not items:
-        return "Keine passenden GitHub Repositories gefunden."
+        return "No matching GitHub repositories found."
 
-    output = [f"=== Top {len(items)} neue ML Repositories auf GitHub (seit {items[0].meta['since']}) ==="]
+    output = [f"=== Top {len(items)} new ML repositories on GitHub (since {items[0].meta['since']}) ==="]
     for repo in items:
         output.append(
             f"Repo: {repo.title}\n"
-            f"Relevanz-Score: {repo.score}\n"
+            f"Relevance score: {repo.score}\n"
             f"Stars: ⭐ {repo.meta['stars']}\n"
-            f"Erstellt: {repo.meta['created']}\n"
+            f"Created: {repo.meta['created']}\n"
             f"URL: {repo.url}\n"
-            f"Beschreibung: {repo.meta['description']}\n"
+            f"Description: {repo.meta['description']}\n"
             f"{'-'*40}"
         )
     return "\n\n".join(output)
@@ -76,14 +76,14 @@ def format_github(items: list[Item]) -> str:
 
 def format_blogs(items: list[Item]) -> str:
     if not items:
-        return "Keine aktuellen Blog-Beiträge gefunden."
+        return "No recent blog posts found."
 
-    output = ["=== Neueste AI & PyTorch Engineering Blogbeiträge ==="]
+    output = ["=== Latest AI & PyTorch engineering blog posts ==="]
     for e in items:
         output.append(
-            f"Titel: {e.title}\n"
-            f"Quelle: {e.meta['feed']}\n"
-            f"Datum: {e.date.strftime('%Y-%m-%d') if e.date else 'unbekannt'}\n"
+            f"Title: {e.title}\n"
+            f"Source: {e.meta['feed']}\n"
+            f"Date: {e.date.strftime('%Y-%m-%d') if e.date else 'unknown'}\n"
             f"URL: {e.url}\n"
             f"{'-'*40}"
         )
@@ -112,9 +112,9 @@ def fetch_huggingface_daily_papers(top_k: int = 5) -> str:
     try:
         items = sources.fetch_huggingface(settings, top_k=top_k)
     except SourceStatusError as e:
-        return f"Fehler beim Abrufen von Hugging Face: Status Code {e.status}"
+        return f"Error fetching Hugging Face: status code {e.status}"
     except Exception as e:
-        return f"Fehler beim Abrufen der Hugging Face Papers: {str(e)}"
+        return f"Error fetching Hugging Face papers: {str(e)}"
     return format_huggingface(items)
 
 
@@ -133,7 +133,7 @@ def fetch_github_trending_ml_repos(
     try:
         items = sources.fetch_github(settings, top_k=top_k, days=days, min_stars=min_stars, max_fetch=max_fetch)
     except SourceError as e:
-        return f"Fehler bei GitHub API Abfrage: {e}"
+        return f"GitHub API query failed: {e}"
     return format_github(items)
 
 
@@ -145,7 +145,7 @@ def fetch_ai_engineering_blogs(top_k: int = 5) -> str:
     try:
         items = sources.fetch_blogs(settings, top_k=top_k)
     except SourceError:
-        return "Keine aktuellen Blog-Beiträge gefunden."
+        return "No recent blog posts found."
     return format_blogs(items)
 
 

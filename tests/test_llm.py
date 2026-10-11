@@ -36,11 +36,11 @@ def test_without_api_key_returns_nothing(monkeypatch):
 
 
 def test_parses_editorial_and_ignores_unknown_keys():
-    client = FakeClient(response({"editorial": "Woche.", "items": [
-        {"key": "arxiv:1", "why": "Passt."}, {"key": "unknown", "why": "x"}]}))
+    client = FakeClient(response({"editorial": "The week.", "items": [
+        {"key": "arxiv:1", "why": "Fits."}, {"key": "unknown", "why": "x"}]}))
     result = annotate(load_settings(), ITEMS, client=client)
-    assert result.editorial == "Woche."
-    assert result.why == {"arxiv:1": "Passt."}
+    assert result.editorial == "The week."
+    assert result.why == {"arxiv:1": "Fits."}
     assert len(client.calls) == 1  # exactly one API call
     assert client.calls[0]["output_config"]["format"]["type"] == "json_schema"
 

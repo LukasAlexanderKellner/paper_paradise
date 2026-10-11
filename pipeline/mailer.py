@@ -20,7 +20,7 @@ class SmtpConfig:
     def from_env(cls) -> "SmtpConfig":
         missing = [v for v in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD") if not os.environ.get(v)]
         if missing:
-            raise MailConfigError(f"Fehlende Umgebungsvariablen: {', '.join(missing)}")
+            raise MailConfigError(f"Missing environment variables: {', '.join(missing)}")
         return cls(
             host=os.environ["SMTP_HOST"],
             port=int(os.environ["SMTP_PORT"]),
@@ -33,7 +33,7 @@ def recipients_from_env() -> list[str]:
     """Recipients come only from NEWSLETTER_RECIPIENTS (comma-separated) so they never land in the repo."""
     recipients = [r.strip() for r in os.environ.get("NEWSLETTER_RECIPIENTS", "").split(",") if r.strip()]
     if not recipients:
-        raise MailConfigError("NEWSLETTER_RECIPIENTS ist nicht gesetzt.")
+        raise MailConfigError("NEWSLETTER_RECIPIENTS is not set.")
     return recipients
 
 

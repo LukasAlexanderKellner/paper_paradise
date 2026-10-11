@@ -9,16 +9,16 @@ from core.models import Item
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 
 SECTION_TITLES = {
-    "huggingface": "Hugging Face: Community-Favoriten",
-    "arxiv": "arXiv: passend zu deinem Profil",
-    "github": "GitHub: neue Repositories",
-    "blogs": "Engineering-Blogs",
+    "huggingface": "Hugging Face: community favorites",
+    "arxiv": "arXiv: matching your profile",
+    "github": "GitHub: new repositories",
+    "blogs": "Engineering blogs",
 }
 SOURCE_NAMES = {
     "huggingface": "Hugging Face Daily Papers",
     "arxiv": "arXiv",
     "github": "GitHub",
-    "blogs": "Engineering-Blogs",
+    "blogs": "Engineering blogs",
 }
 
 

@@ -111,7 +111,7 @@ def fetch_huggingface(
                 errors.append(f"{day}: {e}")
             day += timedelta(days=1)
         if errors:
-            logger.warning("Hugging Face: einzelne Tage fehlgeschlagen: %s", "; ".join(errors))
+            logger.warning("Hugging Face: some days failed: %s", "; ".join(errors))
         if not raw and errors:
             raise SourceError("; ".join(errors))
 
@@ -251,7 +251,7 @@ def fetch_blogs(
             feed = feedparser.parse(url)
             # feedparser does not raise on HTTP errors, check status explicitly
             if feed.get("status", 200) >= 400 or not feed.entries:
-                logger.warning("Feed nicht erreichbar: %s (Status %s)", url, feed.get("status"))
+                logger.warning("Feed unreachable: %s (status %s)", url, feed.get("status"))
                 errors.append(f"{url}: Status {feed.get('status')}")
                 continue
             source = feed.feed.get("title", "AI Blog")
@@ -275,7 +275,7 @@ def fetch_blogs(
             entries.sort(key=lambda e: e.date or datetime.min, reverse=True)
             per_feed.append(entries)
         except Exception as e:
-            logger.warning("Fehler beim Parsen von %s: %s", url, e)
+            logger.warning("Failed to parse %s: %s", url, e)
             errors.append(f"{url}: {e}")
 
     if not per_feed and errors:

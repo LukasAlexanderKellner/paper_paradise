@@ -11,7 +11,7 @@ def get_embedder():
     """Load the embedding model once, on first use."""
     from sentence_transformers import SentenceTransformer
 
-    logger.info("Lade Semantic-Embedding-Modell...")
+    logger.info("Loading semantic embedding model...")
     return SentenceTransformer(EMBEDDING_MODEL)
 
 
