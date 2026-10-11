@@ -255,6 +255,7 @@ Once `Loading semantic embedding model...` appears with no error after it, the s
 - **Timeout on first start:** Usually the embedding model is still downloading. Run the server once manually, then restart Claude Desktop.
 - **`ModuleNotFoundError`:** `command` probably points to the system Python instead of `.venv/bin/python`.
 - **GitHub error 403:** The rate limit was hit. Wait a minute or set `GITHUB_TOKEN`.
+- **`SSLError` / `CERTIFICATE_VERIFY_FAILED`:** All sources are fetched with `requests`, which uses the certificate bundle from `certifi`, independent of how Python was installed. Behind a corporate proxy that inspects TLS traffic, point it to your company's CA certificate: `export REQUESTS_CA_BUNDLE=/path/to/company-ca.pem`. For the newsletter pipeline you can also put it in `.env`; for the MCP server, add it to the `env` block in `claude_desktop_config.json`.
 
 ## Tests
 

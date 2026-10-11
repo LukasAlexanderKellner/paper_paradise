@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
+FEED_TIMEOUT_SECONDS = 10
 
 _ARXIV_ID_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/([^?#/]+?)(?:v\d+)?(?:\.pdf)?(?:[?#].*)?$")
 
@@ -248,11 +249,26 @@ def fetch_blogs(
     errors = []
     for url in settings.blog_feeds:
         try:
-            feed = feedparser.parse(url)
-            # feedparser does not raise on HTTP errors, check status explicitly
-            if feed.get("status", 200) >= 400 or not feed.entries:
-                logger.warning("Feed unreachable: %s (status %s)", url, feed.get("status"))
-                errors.append(f"{url}: Status {feed.get('status')}")
+            # Download with requests instead of feedparser.parse(url): same certificate bundle
+            # (certifi) as all other sources on every platform, a timeout and a real status code
+            response = requests.get(
+                url, headers={"User-Agent": "Smart-AI-Paper-Agent"}, timeout=FEED_TIMEOUT_SECONDS
+            )
+            if response.status_code != 200:
+                logger.warning("Feed unreachable: %s (status %s)", url, response.status_code)
+                errors.append(f"{url}: Status {response.status_code}")
+                continue
+            # Pass bytes so feedparser detects the encoding; content-location resolves relative links
+            feed = feedparser.parse(
+                response.content,
+                response_headers={
+                    "content-location": response.url,
+                    "content-type": response.headers.get("content-type", ""),
+                },
+            )
+            if not feed.entries:
+                logger.warning("Feed has no entries: %s", url)
+                errors.append(f"{url}: no entries")
                 continue
             source = feed.feed.get("title", "AI Blog")
             entries = []
@@ -275,7 +291,7 @@ def fetch_blogs(
             entries.sort(key=lambda e: e.date or datetime.min, reverse=True)
             per_feed.append(entries)
         except Exception as e:
-            logger.warning("Failed to parse %s: %s", url, e)
+            logger.warning("Failed to fetch %s: %s: %s", url, type(e).__name__, e)
             errors.append(f"{url}: {e}")
 
     if not per_feed and errors:
