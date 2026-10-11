@@ -18,6 +18,7 @@ github_topics = ["pytorch", "machine-learning", "deep-learning", "llm"]
 blog_feeds = [
     "https://pytorch.org/blog/feed/",
     "https://huggingface.co/blog/feed.xml",
+    "https://alphasignal.ai/feed.xml",
 ]
 
 [newsletter]

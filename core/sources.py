@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
 FEED_TIMEOUT_SECONDS = 10
+# Without a time window, only the newest posts per feed are ranked (some feeds contain years of archive)
+FEED_RECENT_ENTRIES = 20
 
 _ARXIV_ID_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/([^?#/]+?)(?:v\d+)?(?:\.pdf)?(?:[?#].*)?$")
 
@@ -241,8 +243,10 @@ def fetch_blogs(
     since: datetime | None = None,
 ) -> list[Item]:
     """
-    Fetch the latest posts of all configured blog feeds, round-robin across feeds.
-    With `since` (naive local time), only posts published after it are kept.
+    Fetch posts of all configured blog feeds, rank them against the profile within each feed
+    and pick round-robin across feeds.
+    With `since` (naive local time), all posts published after it are candidates; without it,
+    the newest FEED_RECENT_ENTRIES posts per feed.
     Raises SourceError if no feed could be fetched.
     """
     per_feed = []
@@ -289,6 +293,8 @@ def fetch_blogs(
                     meta={"feed": source},
                 ))
             entries.sort(key=lambda e: e.date or datetime.min, reverse=True)
+            if since is None:
+                entries = entries[:FEED_RECENT_ENTRIES]
             per_feed.append(entries)
         except Exception as e:
             logger.warning("Failed to fetch %s: %s: %s", url, type(e).__name__, e)
@@ -296,6 +302,14 @@ def fetch_blogs(
 
     if not per_feed and errors:
         raise SourceError("; ".join(errors))
+
+    # Score all posts in one batch, then sort each feed by relevance (newest first on ties)
+    all_entries = [e for entries in per_feed for e in entries]
+    scores = similarity_scores(settings.profile, [f"{e.title}. {e.summary}" for e in all_entries])
+    for entry, score in zip(all_entries, scores):
+        entry.score = score
+    for entries in per_feed:
+        entries.sort(key=lambda e: (e.score, e.date or datetime.min), reverse=True)
 
     # Round-robin across feeds so a single prolific blog cannot fill all slots
     selected = []

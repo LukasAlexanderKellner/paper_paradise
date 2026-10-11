@@ -55,3 +55,10 @@ def test_long_summaries_are_truncated(sample_items):
     sample_items["blogs"][0].summary = "word " * 200
     html, _ = render(sample_items)
     assert "word " * 100 not in html and "…" in html
+
+
+def test_blog_relevance_is_shown_when_scored(sample_items):
+    sample_items["blogs"][0].score = 0.512
+    html, text = render(sample_items)
+    assert "Blog - PyTorch · relevance 0.51" in html
+    assert "  Blog - PyTorch, relevance 0.51\n" in text

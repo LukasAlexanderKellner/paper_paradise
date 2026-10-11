@@ -19,7 +19,8 @@ paper_porn Weekly
 {% elif item.source == 'arxiv' %}
   {{ item.meta.categories|join(', ') }}, relevance {{ '%.2f'|format(item.score) }}
 {% elif item.source == 'blogs' %}
-  {{ item.meta.feed }}
+  {{ item.meta.feed }}{% if item.score is not none %}, relevance {{ '%.2f'|format(item.score) }}{% endif %}
+
 {% endif %}
 {% if item.why %}
   Why it matters: {{ item.why }}

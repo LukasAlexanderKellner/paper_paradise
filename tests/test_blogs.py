@@ -17,6 +17,13 @@ RSS = b"""<?xml version="1.0" encoding="UTF-8"?>
 </channel></rss>"""
 
 
+@pytest.fixture(autouse=True)
+def fake_scores(monkeypatch):
+    """Deterministic relevance without loading the embedding model: posts mentioning 'GPU' score high."""
+    monkeypatch.setattr(sources, "similarity_scores",
+                        lambda profile, texts: [0.9 if "GPU" in t else 0.1 for t in texts])
+
+
 def settings_with(feeds):
     s = load_settings()
     object.__setattr__(s, "blog_feeds", feeds)
@@ -69,3 +76,35 @@ def test_all_feeds_failing_raises_with_reasons(monkeypatch):
     with pytest.raises(SourceError) as exc:
         sources.fetch_blogs(settings_with(["https://ssl.test/feed", "https://gone.test/feed"]))
     assert "CERTIFICATE_VERIFY_FAILED" in str(exc.value) and "Status 404" in str(exc.value)
+
+
+def test_posts_are_ranked_by_relevance_within_feed(monkeypatch):
+    rss = RSS.replace(b"<title>Older post</title>", b"<title>Older post about GPU memory</title>")
+    monkeypatch.setattr(sources.requests, "get", fake_get({"https://blog.test/feed": (200, rss)}))
+    items = sources.fetch_blogs(settings_with(["https://blog.test/feed"]), top_k=5)
+    assert [i.title for i in items] == ["Older post about GPU memory", "Newer post"]
+    assert [i.score for i in items] == [0.9, 0.1]
+
+
+def test_round_robin_keeps_one_feed_from_taking_all_slots(monkeypatch):
+    many = b"".join(
+        b"<item><title>GPU post %d</title><link>https://news.test/%d</link>"
+        b"<pubDate>Thu, 08 Oct 2026 10:00:00 GMT</pubDate></item>" % (i, i) for i in range(10)
+    )
+    news = b'<?xml version="1.0"?><rss version="2.0"><channel><title>News</title>' + many + b"</channel></rss>"
+    monkeypatch.setattr(sources.requests, "get", fake_get({
+        "https://news.test/feed": (200, news), "https://blog.test/feed": (200, RSS)}))
+    items = sources.fetch_blogs(settings_with(["https://news.test/feed", "https://blog.test/feed"]), top_k=4)
+    assert [i.meta["feed"] for i in items] == ["News", "Test Blog", "News", "Test Blog"]
+
+
+def test_without_window_only_newest_posts_are_candidates(monkeypatch):
+    old = b"".join(
+        b"<item><title>Old GPU post %d</title><link>https://old.test/%d</link>"
+        b"<pubDate>Mon, 01 Jan 2024 10:00:00 GMT</pubDate></item>" % (i, i) for i in range(30)
+    )
+    feed = RSS.replace(b"</channel>", old + b"</channel>")
+    monkeypatch.setattr(sources.requests, "get", fake_get({"https://blog.test/feed": (200, feed)}))
+    items = sources.fetch_blogs(settings_with(["https://blog.test/feed"]), top_k=100)
+    assert len(items) == sources.FEED_RECENT_ENTRIES
+    assert {"Newer post", "Older post"} <= {i.title for i in items}

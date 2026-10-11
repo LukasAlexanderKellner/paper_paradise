@@ -78,10 +78,11 @@ def format_blogs(items: list[Item]) -> str:
     if not items:
         return "No recent blog posts found."
 
-    output = ["=== Latest AI & PyTorch engineering blog posts ==="]
+    output = ["=== Relevant AI & PyTorch engineering blog posts ==="]
     for e in items:
         output.append(
             f"Title: {e.title}\n"
+            f"Relevance score: {e.score}\n"
             f"Source: {e.meta['feed']}\n"
             f"Date: {e.date.strftime('%Y-%m-%d') if e.date else 'unknown'}\n"
             f"URL: {e.url}\n"

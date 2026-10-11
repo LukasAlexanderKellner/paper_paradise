@@ -26,7 +26,7 @@
   <tr><td style="padding:14px 28px 0 28px;">
     <a href="{{ item.meta.get('abs_url') or item.url }}" style="font-size:16px;font-weight:600;color:#1d4ed8;text-decoration:none;line-height:1.4;">{{ item.title }}</a>
     <p style="margin:4px 0 0 0;font-size:13px;color:#71717a;">
-{% if item.source == 'huggingface' %}▲ {{ item.meta.upvotes }} upvotes{% elif item.source == 'github' %}★ {{ item.meta.stars }} stars · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'arxiv' %}{{ item.meta.categories|join(', ') }} · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'blogs' %}{{ item.meta.feed }}{% endif %}
+{% if item.source == 'huggingface' %}▲ {{ item.meta.upvotes }} upvotes{% elif item.source == 'github' %}★ {{ item.meta.stars }} stars · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'arxiv' %}{{ item.meta.categories|join(', ') }} · relevance {{ '%.2f'|format(item.score) }}{% elif item.source == 'blogs' %}{{ item.meta.feed }}{% if item.score is not none %} · relevance {{ '%.2f'|format(item.score) }}{% endif %}{% endif %}
 {% if item.date %} · {{ item.date.strftime('%Y-%m-%d') }}{% endif %}
 {% if item.source == 'arxiv' %} · <a href="{{ item.url }}" style="color:#71717a;">PDF</a>{% endif %}
     </p>

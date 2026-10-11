@@ -14,7 +14,7 @@ The project has two entry points built on the same logic:
 | arXiv | Newest papers in the configured categories, ranked by semantic similarity to the profile | `fetch_filtered_arxiv_papers` |
 | Hugging Face Daily Papers | Ranked by community upvotes | `fetch_huggingface_daily_papers` |
 | GitHub | New repos with at least `min_stars` stars, ranked by semantic similarity | `fetch_github_trending_ml_repos` |
-| Blogs (PyTorch, Hugging Face) | Latest posts, alternating across all feeds | `fetch_ai_engineering_blogs` |
+| Blogs (PyTorch, Hugging Face, AlphaSignal) | Latest posts, alternating across all feeds | `fetch_ai_engineering_blogs` |
 
 Every item includes a link to the full paper, repo or article.
 
