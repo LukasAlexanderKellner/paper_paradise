@@ -1,0 +1,39 @@
+paper_porn Weekly
+{{ period_start.strftime('%d.%m.%Y') }} – {{ period_end.strftime('%d.%m.%Y') }}
+{% if editorial %}
+
+{{ editorial }}
+{% endif %}
+{% for section in sections %}
+
+
+== {{ section.title }} ==
+{% for item in section["items"] %}
+
+* {{ item.title }}
+  {{ item.meta.get('abs_url') or item.url }}
+{% if item.source == 'huggingface' %}
+  {{ item.meta.upvotes }} Upvotes
+{% elif item.source == 'github' %}
+  {{ item.meta.stars }} Stars, Relevanz {{ '%.2f'|format(item.score) }}
+{% elif item.source == 'arxiv' %}
+  {{ item.meta.categories|join(', ') }}, Relevanz {{ '%.2f'|format(item.score) }}
+{% elif item.source == 'blogs' %}
+  {{ item.meta.feed }}
+{% endif %}
+{% if item.why %}
+  Warum relevant: {{ item.why }}
+{% endif %}
+{% if item.summary %}
+  {{ item.summary|truncate_words }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% if failed_sources %}
+
+
+Nicht verfügbar in dieser Ausgabe: {{ failed_sources|join(', ') }}
+{% endif %}
+
+--
+Automatisch erstellt von paper_porn.

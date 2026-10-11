@@ -1,0 +1,294 @@
+import logging
+import os
+import re
+from datetime import date, datetime, timedelta, timezone
+from time import mktime
+
+import arxiv
+import feedparser
+import requests
+
+from core.config import Settings
+from core.models import Item, SourceError, SourceStatusError
+from core.ranking import is_excluded, similarity_scores
+
+logger = logging.getLogger(__name__)
+
+HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
+GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
+
+_ARXIV_ID_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/([^?#/]+?)(?:v\d+)?(?:\.pdf)?(?:[?#].*)?$")
+
+
+def arxiv_key(arxiv_id_or_url: str) -> str:
+    """Normalize an arXiv ID or abs/pdf URL to 'arxiv:<id>' without version."""
+    match = _ARXIV_ID_RE.search(arxiv_id_or_url)
+    arxiv_id = match.group(1) if match else arxiv_id_or_url
+    return "arxiv:" + re.sub(r"v\d+$", "", arxiv_id)
+
+
+def fetch_arxiv(
+    settings: Settings,
+    categories: list[str] | None = None,
+    max_fetch: int = 30,
+    top_k: int = 5,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> list[Item]:
+    """
+    Fetch the newest arXiv papers of the given categories and rank them against the profile.
+    With `since`, restrict to papers submitted in [since, until] (UTC).
+    """
+    categories = categories or settings.arxiv_categories
+    query_str = " OR ".join([f"cat:{cat}" for cat in categories])
+    client = arxiv.Client()
+    if since:
+        until = until or datetime.now(timezone.utc)
+        query_str = (
+            f"({query_str}) AND submittedDate:"
+            f"[{since.strftime('%Y%m%d%H%M')} TO {until.strftime('%Y%m%d%H%M')}]"
+        )
+        # Bigger pages for weekly fetches, otherwise ~30 requests with a 3s delay each
+        client = arxiv.Client(page_size=500, delay_seconds=3, num_retries=5)
+
+    search = arxiv.Search(
+        query=query_str,
+        max_results=max_fetch,
+        sort_by=arxiv.SortCriterion.SubmittedDate,
+    )
+    raw_papers = list(client.results(search))
+
+    papers = [p for p in raw_papers if not is_excluded(settings.exclude_keywords, p.title, p.summary)]
+    if not papers:
+        return []
+
+    scores = similarity_scores(settings.profile, [f"{p.title}. {p.summary}" for p in papers])
+    items = [
+        Item(
+            source="arxiv",
+            title=p.title,
+            url=p.pdf_url,
+            key=arxiv_key(p.entry_id),
+            summary=p.summary,
+            date=p.published,
+            score=score,
+            meta={"categories": p.categories, "abs_url": p.entry_id},
+        )
+        for p, score in zip(papers, scores)
+    ]
+    items.sort(key=lambda i: i.score, reverse=True)
+    return items[:top_k]
+
+
+def _hf_request(params: dict | None = None) -> list[dict]:
+    response = requests.get(HF_DAILY_PAPERS_URL, params=params, timeout=10)
+    if response.status_code != 200:
+        raise SourceStatusError(response.status_code)
+    return response.json()
+
+
+def fetch_huggingface(
+    settings: Settings,
+    top_k: int = 5,
+    since: date | None = None,
+    until: date | None = None,
+) -> list[Item]:
+    """
+    Fetch Hugging Face Daily Papers sorted by upvotes.
+    Without `since` only the current daily list is fetched; with `since` every day in
+    [since, until] is fetched separately, because the API returns one day per request.
+    """
+    if since is None:
+        raw = _hf_request()
+    else:
+        until = until or datetime.now(timezone.utc).date()
+        raw, errors = [], []
+        day = since
+        while day <= until:
+            try:
+                raw.extend(_hf_request({"date": day.isoformat(), "limit": 100}))
+            except Exception as e:
+                errors.append(f"{day}: {e}")
+            day += timedelta(days=1)
+        if errors:
+            logger.warning("Hugging Face: einzelne Tage fehlgeschlagen: %s", "; ".join(errors))
+        if not raw and errors:
+            raise SourceError("; ".join(errors))
+
+    # The same paper can be listed on several days
+    unique = {}
+    for item in raw:
+        paper = item.get("paper", {})
+        unique.setdefault(paper.get("id"), item)
+
+    # Upvotes live in item["paper"], not on the top-level item
+    papers = [
+        item for item in unique.values()
+        if not is_excluded(
+            settings.exclude_keywords,
+            item.get("paper", {}).get("title"),
+            item.get("paper", {}).get("summary"),
+        )
+    ]
+    papers = sorted(
+        papers,
+        key=lambda item: item.get("paper", {}).get("upvotes", 0),
+        reverse=True,
+    )[:top_k]
+
+    items = []
+    for item in papers:
+        paper = item.get("paper", {})
+        published = paper.get("submittedOnDailyAt") or item.get("publishedAt")
+        items.append(Item(
+            source="huggingface",
+            title=paper.get("title"),
+            url=f"https://arxiv.org/abs/{paper.get('id')}",
+            key=arxiv_key(str(paper.get("id"))),
+            summary=paper.get("summary", ""),
+            date=datetime.fromisoformat(published.replace("Z", "+00:00")) if published else None,
+            meta={"upvotes": paper.get("upvotes", 0), "hf_url": f"https://huggingface.co/papers/{paper.get('id')}"},
+        ))
+    return items
+
+
+def fetch_github(
+    settings: Settings,
+    top_k: int = 5,
+    days: int = 7,
+    min_stars: int = 20,
+    max_fetch: int = 20,
+) -> list[Item]:
+    """
+    Search GitHub for repositories created in the last `days` days, take the most-starred
+    ones per topic as candidates and rank them semantically against the profile.
+    Raises SourceError if nothing was found and at least one topic query failed.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    headers = {"User-Agent": "Smart-AI-Paper-Agent", "Accept": "application/vnd.github+json"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
+
+    # GitHub ANDs multiple topic qualifiers, so query each topic separately and merge
+    repos = {}
+    errors = []
+    for topic in settings.github_topics:
+        params = {
+            "q": f"topic:{topic} created:>={since} stars:>={min_stars}",
+            "sort": "stars",
+            "order": "desc",
+            "per_page": max_fetch,
+        }
+        try:
+            response = requests.get(GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10)
+            if response.status_code != 200:
+                errors.append(f"{topic}: Status {response.status_code}")
+                continue
+            for repo in response.json().get("items", []):
+                repos[repo["full_name"]] = repo
+        except Exception as e:
+            errors.append(f"{topic}: {str(e)}")
+
+    if errors:
+        logger.warning("GitHub: %s", "; ".join(errors))
+
+    # Apply negative filter before ranking
+    repos = {
+        name: r for name, r in repos.items()
+        if not is_excluded(settings.exclude_keywords, name, r.get("description"), " ".join(r.get("topics", [])))
+    }
+
+    if not repos:
+        if errors:
+            raise SourceError("; ".join(errors))
+        return []
+
+    # Rank the most-starred candidates by relevance to the profile
+    candidates = list(repos.values())
+    scores = similarity_scores(
+        settings.profile,
+        [
+            f"{r['full_name']}. {r.get('description') or ''} {' '.join(r.get('topics', []))}"
+            for r in candidates
+        ],
+    )
+    items = [
+        Item(
+            source="github",
+            title=r["full_name"],
+            url=r.get("html_url"),
+            key=r.get("html_url"),
+            summary=r.get("description") or "",
+            date=datetime.fromisoformat(r["created_at"].replace("Z", "+00:00")) if r.get("created_at") else None,
+            score=score,
+            meta={
+                "stars": r.get("stargazers_count"),
+                "created": r.get("created_at", "")[:10],
+                "description": r.get("description"),
+                "since": since,
+            },
+        )
+        for r, score in zip(candidates, scores)
+    ]
+    items.sort(key=lambda i: i.score, reverse=True)
+    return items[:top_k]
+
+
+def fetch_blogs(
+    settings: Settings,
+    top_k: int = 5,
+    since: datetime | None = None,
+) -> list[Item]:
+    """
+    Fetch the latest posts of all configured blog feeds, round-robin across feeds.
+    With `since` (naive local time), only posts published after it are kept.
+    Raises SourceError if no feed could be fetched.
+    """
+    per_feed = []
+    errors = []
+    for url in settings.blog_feeds:
+        try:
+            feed = feedparser.parse(url)
+            # feedparser does not raise on HTTP errors, check status explicitly
+            if feed.get("status", 200) >= 400 or not feed.entries:
+                logger.warning("Feed nicht erreichbar: %s (Status %s)", url, feed.get("status"))
+                errors.append(f"{url}: Status {feed.get('status')}")
+                continue
+            source = feed.feed.get("title", "AI Blog")
+            entries = []
+            for entry in feed.entries:
+                if is_excluded(settings.exclude_keywords, entry.get("title"), entry.get("summary")):
+                    continue
+                published = entry.get("published_parsed") or entry.get("updated_parsed")
+                published = datetime.fromtimestamp(mktime(published)) if published else None
+                if since and (published is None or published < since):
+                    continue
+                entries.append(Item(
+                    source="blogs",
+                    title=entry.title,
+                    url=entry.link,
+                    key=entry.link,
+                    summary=_strip_html(entry.get("summary", "")),
+                    date=published,
+                    meta={"feed": source},
+                ))
+            entries.sort(key=lambda e: e.date or datetime.min, reverse=True)
+            per_feed.append(entries)
+        except Exception as e:
+            logger.warning("Fehler beim Parsen von %s: %s", url, e)
+            errors.append(f"{url}: {e}")
+
+    if not per_feed and errors:
+        raise SourceError("; ".join(errors))
+
+    # Round-robin across feeds so a single prolific blog cannot fill all slots
+    selected = []
+    for rank in range(max((len(f) for f in per_feed), default=0)):
+        for entries in per_feed:
+            if rank < len(entries):
+                selected.append(entries[rank])
+    return selected[:top_k]
+
+
+def _strip_html(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()

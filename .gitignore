@@ -221,3 +221,6 @@ __marimo__/
 
 # Macspecific
 .DS_Store
+
+# Newsletter dry-run output
+out/

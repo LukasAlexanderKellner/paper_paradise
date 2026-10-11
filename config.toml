@@ -1,0 +1,51 @@
+# Zentrale Konfiguration für MCP-Server und Newsletter-Pipeline.
+# Zugangsdaten und Empfänger gehören NICHT hierher, sondern in Umgebungsvariablen (.env bzw. GitHub Secrets).
+
+[profile]
+# Grundlage für das semantische Ranking von arXiv-Papern und GitHub-Repos
+description = """
+Data Science and AI student in 3rd semester. Interested in Machine Learning,
+Deep Learning architectures, PyTorch implementation, Transformer models,
+Distributed Systems, GPU memory optimization, and Cloud Computing infrastructure.
+"""
+# Einträge mit diesen Begriffen in Titel/Beschreibung werden verworfen (gilt für alle Quellen)
+exclude_keywords = ["quantum", "bioinformatics"]
+
+[sources]
+arxiv_categories = ["cs.LG", "cs.AI", "cs.DC"]
+# GitHub verknüpft mehrere Topics per UND, daher wird jedes Topic einzeln abgefragt
+github_topics = ["pytorch", "machine-learning", "deep-learning", "llm"]
+blog_feeds = [
+    "https://pytorch.org/blog/feed/",
+    "https://huggingface.co/blog/feed.xml",
+]
+
+[newsletter]
+window_days = 7
+subject = "paper_porn Weekly: KI & ML der letzten Woche"
+# Absenderadresse. Leer lassen, um SMTP_USER zu verwenden. Kann per NEWSLETTER_SENDER überschrieben werden.
+sender = ""
+# Empfänger kommen ausschließlich aus der Umgebungsvariable NEWSLETTER_RECIPIENTS (kommagetrennt).
+state_file = "state/sent_items.json"
+# Bereits verschickte Einträge werden nach so vielen Tagen aus der State-Datei entfernt
+state_retention_days = 180
+
+[newsletter.top_k]
+arxiv = 5
+huggingface = 5
+github = 5
+blogs = 5
+
+[newsletter.arxiv]
+# Obergrenze für die Wochenabfrage (cs.LG + cs.AI + cs.DC liefern etwa 2.000-2.500 Paper pro Woche)
+max_fetch = 3000
+
+[newsletter.github]
+min_stars = 20
+max_fetch = 30
+
+[llm]
+# Optionales Editorial und "Warum relevant"-Texte. Wird übersprungen, wenn ANTHROPIC_API_KEY fehlt.
+enabled = true
+model = "claude-sonnet-5-5"
+effort = "medium"
