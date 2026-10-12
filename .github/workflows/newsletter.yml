@@ -2,10 +2,11 @@ name: Weekly newsletter
 
 on:
   schedule:
-    # Cron runs in UTC. Monday 07:00 Europe/Berlin is 05:00 UTC in summer (CEST)
-    # and 06:00 UTC in winter (CET). Both are scheduled; the gate job keeps the matching one.
-    - cron: "0 5 * * 1"
-    - cron: "0 6 * * 1"
+    # Cron runs in UTC. Monday 09:30 Europe/Berlin is 07:30 UTC in summer (CEST)
+    # and 08:30 UTC in winter (CET). Both are scheduled; the gate job keeps the matching one.
+    # Off the full hour on purpose: GitHub delays or drops many scheduled runs at :00.
+    - cron: "30 7 * * 1"
+    - cron: "30 8 * * 1"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -36,9 +37,9 @@ jobs:
           offset=$(TZ=Europe/Berlin date +%z)
           if [ "$EVENT" != "schedule" ]; then
             run=true
-          elif [ "$SCHEDULE" = "0 5 * * 1" ] && [ "$offset" = "+0200" ]; then
+          elif [ "$SCHEDULE" = "30 7 * * 1" ] && [ "$offset" = "+0200" ]; then
             run=true
-          elif [ "$SCHEDULE" = "0 6 * * 1" ] && [ "$offset" = "+0100" ]; then
+          elif [ "$SCHEDULE" = "30 8 * * 1" ] && [ "$offset" = "+0100" ]; then
             run=true
           else
             run=false

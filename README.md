@@ -5,7 +5,7 @@ Collects new content from the AI and ML world and filters it against a personal 
 The project has two entry points built on the same logic:
 
 - **MCP server** (`paperporn_mcp.py`): Claude Desktop or any other MCP client calls the sources as tools on demand.
-- **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email. Runs automatically via GitHub Actions every Monday at 7:00 (Europe/Berlin).
+- **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email. Runs automatically via GitHub Actions every Monday at 9:30 (Europe/Berlin).
 
 ## Sources
 
@@ -181,9 +181,10 @@ If only some sources fail, the newsletter goes out with the remaining ones and l
 
 ## Automatic sending with GitHub Actions
 
-The workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.yml) runs every Monday at 7:00 Berlin time.
+The workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.yml) runs every Monday at 9:30 Berlin time.
 
-- **Daylight saving time:** GitHub cron runs in UTC, so two times are scheduled (5:00 and 6:00 UTC). A preceding job checks Berlin's current UTC offset and only lets the matching run continue. This also works when GitHub starts the run late.
+- **Daylight saving time:** GitHub cron runs in UTC, so two times are scheduled (7:30 and 8:30 UTC). A preceding job checks Berlin's current UTC offset and only lets the matching run continue. This also works when GitHub starts the run late.
+- **Not on the full hour:** GitHub does not guarantee scheduled runs. At `:00` the load is highest and runs are often delayed or dropped, so the schedule uses `:30`. If a Monday run is missing, start it manually via **Run workflow**.
 - **Caching:** pip packages and the embedding model are cached between runs. torch is installed as the CPU-only build.
 - **State file:** After a successful send, `state/sent_items.json` is committed back by `github-actions[bot]`.
 
