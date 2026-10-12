@@ -41,14 +41,34 @@ def test_failed_sources_are_listed(sample_items):
     assert "Not available in this issue: GitHub" in text
 
 
-def test_editorial_and_why_are_optional(sample_items):
-    html, _ = render(sample_items)
+def test_summary_block_and_why_are_optional(sample_items):
+    html, text = render(sample_items)
     assert "Why it matters" not in html
+    assert "This week's highlight" not in html and "#eff6ff" not in html  # no empty summary box
 
     sample_items["github"][0].why = "Fits GPU optimization."
-    html, text = render(sample_items, editorial="This week: lots of RL.")
-    assert "This week: lots of RL." in html and "This week: lots of RL." in text
+    repo = sample_items["github"][0]
+    html, text = render(
+        sample_items,
+        headline="This week's highlight: a/b.",
+        summary="Lots of RL this week.",
+        highlights=[(repo, "Cuts GPU memory in half.")],
+    )
+    assert "This week&#39;s highlight: a/b." in html  # apostrophe is HTML-escaped
+    assert "This week's highlight: a/b." in text
+    for content in (html, text):
+        assert "Lots of RL this week." in content
+        assert "Cuts GPU memory in half." in content
+    assert '<a href="https://github.com/a/b"' in html.split("Lots of RL this week.")[1].split("</ul>")[0]
+    assert "- a/b: Cuts GPU memory in half.\n  https://github.com/a/b" in text
+    # Summary comes before the first section
+    assert html.index("Lots of RL this week.") < html.index("Hugging Face: community favorites")
     assert "Fits GPU optimization." in html and "Why it matters: Fits GPU optimization." in text
+
+
+def test_summary_text_is_html_escaped(sample_items):
+    html, _ = render(sample_items, summary="<script>alert(1)</script>")
+    assert "<script>alert" not in html and "&lt;script&gt;" in html
 
 
 def test_long_summaries_are_truncated(sample_items):

@@ -28,7 +28,9 @@ class NewsletterContext:
     period_start: datetime
     period_end: datetime
     failed_sources: list[str] = field(default_factory=list)
-    editorial: str | None = None
+    headline: str | None = None                                     # LLM: "This week's highlight: ..."
+    summary: str | None = None                                      # LLM: 5-6 sentences
+    highlights: list[tuple[Item, str]] = field(default_factory=list)  # LLM: (item, takeaway)
 
 
 def _truncate(text: str | None, length: int = 320) -> str:
@@ -62,7 +64,9 @@ def render_newsletter(ctx: NewsletterContext) -> tuple[str, str]:
         "period_start": ctx.period_start,
         "period_end": ctx.period_end,
         "failed_sources": [SOURCE_NAMES.get(s, s) for s in ctx.failed_sources],
-        "editorial": ctx.editorial,
+        "headline": ctx.headline,
+        "summary": ctx.summary,
+        "highlights": [{"item": item, "takeaway": takeaway} for item, takeaway in ctx.highlights],
     }
     html = env.get_template("newsletter.html.j2").render(**variables)
     text = env.get_template("newsletter.txt.j2").render(**variables)

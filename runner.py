@@ -1,6 +1,6 @@
 """
 Weekly newsletter pipeline: fetch all sources, dedupe, filter already-sent items,
-optionally annotate with Claude, render and send via SMTP.
+optionally add a Gemini-written summary, render and send via SMTP.
 
     python runner.py --dry-run     # writes out/newsletter-<date>.html/.txt, sends nothing, keeps state
     python runner.py --test-to me@example.com   # real send to one address only, keeps state
@@ -126,7 +126,9 @@ def main(argv: list[str] | None = None) -> int:
         period_start=now - timedelta(days=settings.newsletter.window_days),
         period_end=now,
         failed_sources=failed,
-        editorial=annotations.editorial if annotations else None,
+        headline=annotations.headline if annotations else None,
+        summary=annotations.summary if annotations else None,
+        highlights=annotations.highlights if annotations else [],
     ))
 
     if args.dry_run:

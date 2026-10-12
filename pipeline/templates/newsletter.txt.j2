@@ -1,8 +1,19 @@
 paper_porn Weekly
 {{ period_start.strftime('%Y-%m-%d') }} – {{ period_end.strftime('%Y-%m-%d') }}
-{% if editorial %}
+{% if headline or summary or highlights %}
 
-{{ editorial }}
+{% if headline %}
+{{ headline }}
+
+{% endif %}
+{% if summary %}
+{{ summary }}
+{% endif %}
+{% for h in highlights %}
+
+- {{ h.item.title }}: {{ h.takeaway }}
+  {{ h.item.meta.get('abs_url') or h.item.url }}
+{% endfor %}
 {% endif %}
 {% for section in sections %}
 

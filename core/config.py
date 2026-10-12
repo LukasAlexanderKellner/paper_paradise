@@ -24,7 +24,6 @@ class NewsletterSettings:
 class LLMSettings:
     enabled: bool
     model: str
-    effort: str
 
 
 @dataclass(frozen=True)
@@ -76,8 +75,7 @@ def load_settings(path: str | Path | None = None) -> Settings:
         ),
         llm=LLMSettings(
             enabled=llm.get("enabled", True),
-            model=llm.get("model", "claude-opus-5-5"),
-            effort=llm.get("effort", "medium"),
+            model=llm.get("model", "gemini-3.8-flash"),
         ),
         raw=raw,
     )

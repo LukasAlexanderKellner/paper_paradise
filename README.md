@@ -29,7 +29,7 @@ The pipeline adds three more steps:
 
 5. **Duplicates:** The same paper can appear on both Hugging Face and arXiv. It is identified by its arXiv ID (without version number), otherwise by its URL, and kept in the Hugging Face section.
 6. **Already sent:** Everything listed in [`state/sent_items.json`](state/sent_items.json) is filtered out. The file is only updated after a successful send. Entries older than 180 days are removed from it.
-7. **Optional editorial:** A single Claude API call writes a short overview of the week and one or two sentences per item explaining why it is relevant. Without `ANTHROPIC_API_KEY`, or if the call fails, the newsletter goes out without this part.
+7. **Optional summary (Google Gemini):** A single Gemini call writes the opening of the newsletter: a headline ("This week's highlight: …"), 5–6 sentences on the most exciting findings, a one- to two-sentence takeaway for each of the 3–5 most exciting items, and a short "why it matters" for every item. Without `GEMINI_API_KEY`, or if the call fails, the newsletter goes out without this part.
 
 The MCP tools do not use the state file. They always show the current state.
 
@@ -92,7 +92,7 @@ All content settings live in [`config.toml`](config.toml). The file is part of t
 | `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Number of items per section |
 | `[newsletter.arxiv]` | `max_fetch` | Upper limit for the weekly query (a week has roughly 2,000–2,500 papers) |
 | `[newsletter.github]` | `min_stars`, `max_fetch` | Minimum stars, candidates per topic |
-| `[llm]` | `enabled`, `model`, `effort` | Editorial on/off, Claude model, effort (`low` to `max`) |
+| `[llm]` | `enabled`, `model` | Gemini summary on/off, Gemini model (default `gemini-3.8-flash`) |
 
 Exclusion keywords match substrings, not whole words. A short keyword like `"rl"` would also exclude "world".
 
@@ -110,7 +110,7 @@ cp .env.example .env
 | `SMTP_USER`, `SMTP_PASSWORD` | for sending | Login (for Gmail, an [app password](https://myaccount.google.com/apppasswords)) |
 | `NEWSLETTER_RECIPIENTS` | for sending | Recipients, comma-separated. They receive the mail as Bcc and cannot see each other |
 | `NEWSLETTER_SENDER` | no | Overrides `sender` from `config.toml` |
-| `ANTHROPIC_API_KEY` | no | Enables the editorial and "why it matters" texts |
+| `GEMINI_API_KEY` | no | Enables the Gemini summary and "why it matters" texts ([get a key](https://aistudio.google.com/apikey)) |
 | `GITHUB_TOKEN` | no | Higher rate limit for GitHub search (without a token: 10 requests per minute) |
 
 ## Testing the newsletter locally
@@ -156,12 +156,12 @@ Common problems with the test send:
 - **Exit code 4, "Missing environment variables":** An SMTP variable is missing from `.env`.
 - **`SMTPAuthenticationError`:** Username or password is wrong. Gmail and many other providers require an app password instead of your regular password.
 - **Timeout or `ConnectionRefusedError`:** Host or port is wrong. Common ports are 587 (STARTTLS) and 465 (SSL).
-- **No editorial in the mail:** `ANTHROPIC_API_KEY` is not set. The newsletter still works, just without the overview and "why it matters" texts.
+- **No summary at the top of the mail:** `GEMINI_API_KEY` is not set, or the Gemini call failed (the log says which). The newsletter still works, just without the summary and "why it matters" texts.
 
 ### More options
 
 ```bash
-python runner.py --dry-run --no-llm          # without the Claude call
+python runner.py --dry-run --no-llm          # without the Gemini call
 python runner.py --dry-run --output-dir /tmp # different output folder
 python runner.py                             # real send to NEWSLETTER_RECIPIENTS, updates state/sent_items.json
 ```
@@ -200,7 +200,7 @@ The workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.y
    | `SMTP_PASSWORD` | yes |
    | `NEWSLETTER_RECIPIENTS` | yes |
    | `NEWSLETTER_SENDER` | no |
-   | `ANTHROPIC_API_KEY` | no |
+   | `GEMINI_API_KEY` | no |
 
    GitHub provides `GITHUB_TOKEN` automatically.
 

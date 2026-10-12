@@ -46,7 +46,7 @@ min_stars = 20
 max_fetch = 30
 
 [llm]
-# Optional editorial and "why it matters" texts. Skipped if ANTHROPIC_API_KEY is not set.
+# Optional Gemini summary at the top ("This week's highlight: ...", 5-6 sentences, highlight takeaways)
+# and "why it matters" per item. Skipped if GEMINI_API_KEY is not set.
 enabled = true
-model = "claude-sonnet-5-5"
-effort = "medium"
+model = "gemini-3.8-flash"
