@@ -1,1 +1,17 @@
-{}
+{
+  "arxiv:2610.08448": "2026-10-13T15:12:05+00:00",
+  "arxiv:2610.12374": "2026-10-13T15:12:05+00:00",
+  "arxiv:2610.12572": "2026-10-13T15:12:05+00:00",
+  "arxiv:2610.13361": "2026-10-13T15:12:05+00:00",
+  "arxiv:2610.13527": "2026-10-13T15:12:05+00:00",
+  "https://alphasignal.ai/news/microsoft-s-studentsim-trains-ai-tutors-on-synthetic-learners-beating": "2026-10-13T15:12:05+00:00",
+  "https://github.com/PkLavc/Autotrader": "2026-10-13T15:12:05+00:00",
+  "https://github.com/datologyai/zephon": "2026-10-13T15:12:05+00:00",
+  "https://github.com/deeplethe/fde-gym": "2026-10-13T15:12:05+00:00",
+  "https://github.com/deeplethe/solid-glass": "2026-10-13T15:12:05+00:00",
+  "https://github.com/yandex-research/tabular-regression": "2026-10-13T15:12:05+00:00",
+  "https://huggingface.co/blog/LiquidAI/open-d1": "2026-10-13T15:12:05+00:00",
+  "https://huggingface.co/blog/allenai/impactful-scheduling": "2026-10-13T15:12:05+00:00",
+  "https://pytorch.org/blog/modernizing-table-batched-embeddings-with-fbtriton/": "2026-10-13T15:12:05+00:00",
+  "https://pytorch.org/blog/session-aware-agentic-inference-with-nvidia-dynamo/": "2026-10-13T15:12:05+00:00"
+}
