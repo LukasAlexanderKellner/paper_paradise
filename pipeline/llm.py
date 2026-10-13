@@ -10,11 +10,30 @@ from core.models import Item
 
 logger = logging.getLogger(__name__)
 
+GLOSSARY_MAX_TERMS = 20
+
 SYSTEM_PROMPT = (
     "You write the opening of a weekly AI/ML newsletter for a single reader. "
-    "Write in English, factual and concrete, without marketing phrases. "
+    "Write in English, factual and concrete, without marketing phrases, "
+    "except where a task explicitly asks for another language. "
     "Use only the provided items and never invent results, numbers or details "
     "that are not in an item's title or summary."
+)
+
+# Glossary task. The language of the glossary is set here: change the last three sentences to get
+# translations and explanations in another language (or drop the translation).
+GLOSSARY_INSTRUCTIONS = (
+    "5. glossary: the 10 to 20 hardest technical terms that appear in this newsletter "
+    "(item titles and summaries, and your own headline and summary), so the reader can follow the issue. "
+    "Pick terms a student at the reader's level would most likely NOT know yet: niche methods, "
+    "uncommon acronyms, specialised architectures, training techniques and domain jargon. "
+    "Skip everyday ML vocabulary the reader already knows, in particular: {known_terms}. "
+    "Skip company, product and person names unless the name stands for a technique. "
+    "Order the terms from most to least important for understanding this issue. "
+    "For each term: term = the English term exactly as written in the text; "
+    "translation = the usual German term (repeat the English term if German uses it unchanged); "
+    "explanation = 1 to 2 short, plain sentences in German that give a rough idea, not a full definition. "
+    "Write German with correct spelling including umlauts (ä, ö, ü, ß); never replace them with a, o, u or ss."
 )
 
 
@@ -28,11 +47,18 @@ class ItemNote(BaseModel):
     why: str = Field(description="1-2 sentences on why the item is relevant to the reader's profile")
 
 
+class GlossaryEntry(BaseModel):
+    term: str = Field(description="English term exactly as written in the text")
+    translation: str = Field(description="German term")
+    explanation: str = Field(description="1-2 short sentences in German")
+
+
 class Digest(BaseModel):
     headline: str = Field(description='one sentence starting with "This week\'s highlight:"')
     summary: str = Field(description="5-6 sentences on the most exciting findings, connecting the themes")
     highlights: list[Highlight] = Field(description="the 3-5 most exciting items")
     notes: list[ItemNote] = Field(description="one note for every item")
+    glossary: list[GlossaryEntry] = Field(description="the 10-20 hardest terms of this newsletter")
 
 
 @dataclass
@@ -41,9 +67,10 @@ class Annotations:
     summary: str | None = None
     highlights: list[tuple[Item, str]] = field(default_factory=list)
     why: dict[str, str] = field(default_factory=dict)
+    glossary: list[GlossaryEntry] = field(default_factory=list)
 
 
-def _build_prompt(profile: str, items: list[Item]) -> str:
+def _build_prompt(profile: str, items: list[Item], known_terms: list[str]) -> str:
     entries = [
         {
             "key": item.key,
@@ -60,14 +87,34 @@ def _build_prompt(profile: str, items: list[Item]) -> str:
         '1. headline: one sentence starting with "This week\'s highlight:" that names the single most exciting item.\n'
         "2. summary: 5 to 6 sentences on the most exciting findings across all items, connecting the main themes.\n"
         "3. highlights: the 3 to 5 most exciting items (same key), each with a 1-2 sentence takeaway of its finding.\n"
-        "4. notes: for every item (same key) 1 to 2 sentences on why it is relevant to this profile."
+        "4. notes: for every item (same key) 1 to 2 sentences on why it is relevant to this profile.\n"
+        + GLOSSARY_INSTRUCTIONS.format(known_terms=", ".join(known_terms) or "none")
     )
+
+
+def _clean_glossary(entries: list[GlossaryEntry], newsletter_text: str) -> list[GlossaryEntry]:
+    """Drop empty, duplicate and invented terms (not found in the newsletter text) and cap the list."""
+    text = newsletter_text.lower()
+    seen, cleaned, dropped = set(), [], []
+    for entry in entries:
+        term = entry.term.strip()
+        if not term or not entry.explanation.strip() or term.lower() in seen:
+            continue
+        if term.lower() not in text:
+            dropped.append(term)
+            continue
+        seen.add(term.lower())
+        cleaned.append(GlossaryEntry(term=term, translation=entry.translation.strip() or term,
+                                     explanation=entry.explanation.strip()))
+    if dropped:
+        logger.info("Glossary: dropped terms not found in the newsletter: %s", ", ".join(dropped))
+    return cleaned[:GLOSSARY_MAX_TERMS]
 
 
 def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
     """
     One Gemini call that writes a headline, a short summary of the week's most exciting findings,
-    highlight takeaways and a "why it matters" per item.
+    highlight takeaways, a "why it matters" per item and a glossary of the hardest terms.
     Returns empty Annotations if no GEMINI_API_KEY is set or anything goes wrong.
     """
     if not settings.llm.enabled or not items:
@@ -86,7 +133,7 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
         )
         response = client.models.generate_content(
             model=settings.llm.model,
-            contents=_build_prompt(settings.profile, items),
+            contents=_build_prompt(settings.profile, items, settings.llm.glossary_known_terms),
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 response_mime_type="application/json",
@@ -100,7 +147,11 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
 
         digest = Digest.model_validate_json(response.text)
         by_key = {item.key: item for item in items}
+        newsletter_text = " ".join(
+            [digest.headline, digest.summary] + [f"{i.title} {i.summary or ''}" for i in items]
+        )
         return Annotations(
+            glossary=_clean_glossary(digest.glossary, newsletter_text),
             headline=digest.headline.strip() or None,
             summary=digest.summary.strip() or None,
             highlights=[(by_key[h.key], h.takeaway.strip()) for h in digest.highlights

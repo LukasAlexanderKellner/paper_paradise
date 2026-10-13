@@ -66,6 +66,23 @@ def test_summary_block_and_why_are_optional(sample_items):
     assert "Fits GPU optimization." in html and "Why it matters: Fits GPU optimization." in text
 
 
+def test_glossary_is_rendered_first_in_the_requested_format(sample_items):
+    from pipeline.llm import GlossaryEntry
+
+    glossary = [GlossaryEntry(term="KV cache", translation="KV-Cache", explanation="Zwischenspeicher <b>für</b> Attention.")]
+    html, text = render(sample_items, glossary=glossary, summary="Lots of RL this week.")
+    assert "<strong>KV cache</strong> = KV-Cache: Zwischenspeicher &lt;b&gt;für&lt;/b&gt; Attention." in html
+    assert "- KV cache = KV-Cache: Zwischenspeicher <b>für</b> Attention.\n" in text
+    # Glossary is the first block, before the summary
+    assert html.index("Glossary") < html.index("Lots of RL this week.")
+    assert text.index("Glossary") < text.index("Lots of RL this week.")
+
+
+def test_no_glossary_block_without_entries(sample_items):
+    html, text = render(sample_items)
+    assert "Glossary" not in html and "Glossary" not in text
+
+
 def test_summary_text_is_html_escaped(sample_items):
     html, _ = render(sample_items, summary="<script>alert(1)</script>")
     assert "<script>alert" not in html and "&lt;script&gt;" in html

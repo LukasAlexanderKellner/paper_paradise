@@ -31,6 +31,7 @@ class NewsletterContext:
     headline: str | None = None                                     # LLM: "This week's highlight: ..."
     summary: str | None = None                                      # LLM: 5-6 sentences
     highlights: list[tuple[Item, str]] = field(default_factory=list)  # LLM: (item, takeaway)
+    glossary: list = field(default_factory=list)                     # LLM: GlossaryEntry(term, translation, explanation)
 
 
 def _truncate(text: str | None, length: int = 320) -> str:
@@ -65,6 +66,7 @@ def render_newsletter(ctx: NewsletterContext) -> tuple[str, str]:
         "period_end": ctx.period_end,
         "failed_sources": [SOURCE_NAMES.get(s, s) for s in ctx.failed_sources],
         "headline": ctx.headline,
+        "glossary": ctx.glossary,
         "summary": ctx.summary,
         "highlights": [{"item": item, "takeaway": takeaway} for item, takeaway in ctx.highlights],
     }

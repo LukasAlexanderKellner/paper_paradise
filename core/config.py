@@ -24,6 +24,7 @@ class NewsletterSettings:
 class LLMSettings:
     enabled: bool
     model: str
+    glossary_known_terms: list[str]
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ def load_settings(path: str | Path | None = None) -> Settings:
         llm=LLMSettings(
             enabled=llm.get("enabled", True),
             model=llm.get("model", "gemini-3.8-flash"),
+            glossary_known_terms=list(llm.get("glossary_known_terms", [])),
         ),
         raw=raw,
     )

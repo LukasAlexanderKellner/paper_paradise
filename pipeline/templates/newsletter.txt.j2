@@ -1,5 +1,12 @@
 paper_porn Weekly
 {{ period_start.strftime('%Y-%m-%d') }} – {{ period_end.strftime('%Y-%m-%d') }}
+{% if glossary %}
+
+Glossary
+{% for g in glossary %}
+- {{ g.term }} = {{ g.translation }}: {{ g.explanation }}
+{% endfor %}
+{% endif %}
 {% if headline or summary or highlights %}
 
 {% if headline %}

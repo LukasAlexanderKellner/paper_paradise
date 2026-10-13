@@ -29,7 +29,7 @@ The pipeline adds three more steps:
 
 5. **Duplicates:** The same paper can appear on both Hugging Face and arXiv. It is identified by its arXiv ID (without version number), otherwise by its URL, and kept in the Hugging Face section.
 6. **Already sent:** Everything listed in [`state/sent_items.json`](state/sent_items.json) is filtered out. The file is only updated after a successful send. Entries older than 180 days are removed from it.
-7. **Optional summary (Google Gemini):** A single Gemini call writes the opening of the newsletter: a headline ("This week's highlight: …"), 5–6 sentences on the most exciting findings, a one- to two-sentence takeaway for each of the 3–5 most exciting items, and a short "why it matters" for every item. Without `GEMINI_API_KEY`, or if the call fails, the newsletter goes out without this part.
+7. **Optional summary (Google Gemini):** A single Gemini call writes the opening of the newsletter: a headline ("This week's highlight: …"), 5–6 sentences on the most exciting findings, a one- to two-sentence takeaway for each of the 3–5 most exciting items, and a short "why it matters" for every item. The same call creates a **glossary** at the very top of the newsletter: the 10–20 hardest terms of the issue in the form `english term = German term: short German explanation`. Without `GEMINI_API_KEY`, or if the call fails, the newsletter goes out without this part.
 
 The MCP tools do not use the state file. They always show the current state.
 
@@ -92,7 +92,10 @@ All content settings live in [`config.toml`](config.toml). The file is part of t
 | `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Number of items per section |
 | `[newsletter.arxiv]` | `max_fetch` | Upper limit for the weekly query (a week has roughly 2,000–2,500 papers) |
 | `[newsletter.github]` | `min_stars`, `max_fetch` | Minimum stars, candidates per topic |
-| `[llm]` | `enabled`, `model` | Gemini summary on/off, Gemini model (default `gemini-3.8-flash`) |
+| `[llm]` | `enabled`, `model` | Gemini summary and glossary on/off, Gemini model (default `gemini-3.8-flash`) |
+| | `glossary_known_terms` | Terms you already know; they never appear in the glossary. Extend it to fine-tune the glossary |
+
+**Glossary language:** The glossary translates and explains terms in German. To change that, edit the last sentences of `GLOSSARY_INSTRUCTIONS` in [`pipeline/llm.py`](pipeline/llm.py). Terms the model returns that do not appear in the newsletter text are dropped and logged, so the glossary never explains words you won't read.
 
 Exclusion keywords match substrings, not whole words. A short keyword like `"rl"` would also exclude "world".
 

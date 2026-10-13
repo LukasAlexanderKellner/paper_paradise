@@ -129,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         headline=annotations.headline if annotations else None,
         summary=annotations.summary if annotations else None,
         highlights=annotations.highlights if annotations else [],
+        glossary=annotations.glossary if annotations else [],
     ))
 
     if args.dry_run:

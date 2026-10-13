@@ -4,7 +4,7 @@
 [profile]
 # Basis for the semantic ranking of arXiv papers and GitHub repos
 description = """
-Data Science and AI student in 3rd semester. Interested in Machine Learning,
+Data Science and AI student in 5th semester. Interested in Machine Learning,
 Deep Learning architectures, PyTorch implementation, Transformer models,
 Distributed Systems, GPU memory optimization, and Cloud Computing infrastructure.
 """
@@ -46,7 +46,14 @@ min_stars = 20
 max_fetch = 30
 
 [llm]
-# Optional Gemini summary at the top ("This week's highlight: ...", 5-6 sentences, highlight takeaways)
-# and "why it matters" per item. Skipped if GEMINI_API_KEY is not set.
+# Optional Gemini summary at the top ("This week's highlight: ...", 5-6 sentences, highlight takeaways),
+# a glossary of the hardest terms and "why it matters" per item. Skipped if GEMINI_API_KEY is not set.
 enabled = true
 model = "gemini-3.8-flash"
+# Terms the reader already knows; they never go into the glossary. Extend this list to fine-tune it.
+glossary_known_terms = [
+    "machine learning", "deep learning", "neural network", "transformer", "attention", "LLM",
+    "large language model", "GPU", "CPU", "PyTorch", "training", "inference", "fine-tuning",
+    "dataset", "benchmark", "accuracy", "embedding", "token", "parameter", "gradient descent",
+    "overfitting", "loss function", "API", "open source", "cloud", "agent", "prompt",
+]
