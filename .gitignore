@@ -224,3 +224,6 @@ __marimo__/
 
 # Newsletter dry-run output
 out/
+
+# Sensitive User Data
+.porn_subscribers.csv
