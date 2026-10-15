@@ -71,7 +71,21 @@
   </td></tr>
 {% endif %}
   <tr><td style="padding:24px 28px 28px 28px;">
-    <p style="margin:0;font-size:12px;color:#a1a1aa;">Generated automatically by paper_porn.</p>
+    <p style="margin:0;font-size:12px;line-height:1.6;color:#a1a1aa;">Generated automatically by paper_porn.
+{% if unsubscribe_url %}
+      You receive this newsletter because you subscribed to it.
+{% endif %}
+{% if unsubscribe_url or imprint_url %}
+      <br>
+{% if unsubscribe_url %}
+      <a href="{{ unsubscribe_url }}" style="color:#71717a;">Unsubscribe</a>
+{% endif %}
+{% if unsubscribe_url and imprint_url %} · {% endif %}
+{% if imprint_url %}
+      <a href="{{ imprint_url }}" style="color:#71717a;">Imprint</a>
+{% endif %}
+{% endif %}
+    </p>
   </td></tr>
 </table>
 </td></tr>

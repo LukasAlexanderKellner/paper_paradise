@@ -1,9 +1,11 @@
 """
 Weekly newsletter pipeline: fetch all sources, dedupe, filter already-sent items,
-optionally add a Gemini-written summary, render and send via SMTP.
+optionally add a Gemini-written summary, render and send it via SMTP or as a Brevo campaign
+(config.toml: [newsletter] delivery = "smtp" | "brevo").
 
     python runner.py --dry-run     # writes out/newsletter-<date>.html/.txt, sends nothing, keeps state
     python runner.py --test-to me@example.com   # real send to one address only, keeps state
+                                                # (Brevo: the address must exist as a contact)
     python runner.py               # sends the mail and updates the state file
 """
 import argparse
@@ -17,6 +19,8 @@ from dotenv import load_dotenv
 from core import sources
 from core.config import ROOT_DIR, Settings, load_settings
 from core.models import Item
+from pipeline import brevo_mailer
+from pipeline.brevo_mailer import BrevoClient, BrevoConfig, BrevoConfigError
 from pipeline.dedupe import dedupe
 from pipeline.llm import annotate
 from pipeline.mailer import (
@@ -94,13 +98,21 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings(args.config)
     now = datetime.now(timezone.utc)
 
+    delivery = settings.newsletter.delivery
+    if delivery not in ("smtp", "brevo"):
+        logger.error('Unknown [newsletter] delivery "%s" in config.toml, use "smtp" or "brevo".', delivery)
+        return EXIT_CONFIG_ERROR
+
     # Check mail settings before the slow fetch, so a misconfigured run fails fast
     if not args.dry_run:
         try:
-            smtp = SmtpConfig.from_env()
-            recipients = [args.test_to] if args.test_to else recipients_from_env()
-            sender = resolve_sender(settings.newsletter.sender, smtp)
-        except MailConfigError as e:
+            if delivery == "brevo":
+                brevo = BrevoClient(BrevoConfig.from_env(settings.brevo))
+            else:
+                smtp = SmtpConfig.from_env()
+                recipients = [args.test_to] if args.test_to else recipients_from_env()
+                sender = resolve_sender(settings.newsletter.sender, smtp)
+        except (MailConfigError, BrevoConfigError) as e:
             logger.error("%s", e)
             return EXIT_CONFIG_ERROR
 
@@ -130,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
         summary=annotations.summary if annotations else None,
         highlights=annotations.highlights if annotations else [],
         glossary=annotations.glossary if annotations else [],
+        imprint_url=settings.newsletter.imprint_url,
+        # Brevo fills in each contact's personal unsubscribe link
+        unsubscribe_url=brevo_mailer.UNSUBSCRIBE_PLACEHOLDER if delivery == "brevo" else "",
     ))
 
     if args.dry_run:
@@ -141,13 +156,24 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OK
 
     subject = f"[TEST] {settings.newsletter.subject}" if args.test_to else settings.newsletter.subject
-    msg = build_message(subject, sender, html, text)
     try:
-        send_message(msg, recipients, smtp)
+        if delivery == "brevo":
+            name = f"paper_porn {now:%Y-%m-%d}" + (" TEST" if args.test_to else "")
+            preview = annotations.headline if annotations else None
+            if args.test_to:
+                brevo_mailer.send_test(brevo, [args.test_to], name, subject, html, preview)
+                logger.info("Sent Brevo test of %d items to 1 address.", len(all_items))
+            else:
+                campaign_id = brevo_mailer.send_campaign(brevo, name, subject, html, preview)
+                logger.info("Brevo campaign %s with %d items sent to list(s) %s.",
+                            campaign_id, len(all_items), settings.brevo.list_ids)
+        else:
+            msg = build_message(subject, sender, html, text)
+            send_message(msg, recipients, smtp)
+            logger.info("Sent newsletter with %d items to %d recipient(s).", len(all_items), len(recipients))
     except Exception as e:
         logger.error("Sending failed, state unchanged: %s: %s", type(e).__name__, e)
         return EXIT_SEND_FAILED
-    logger.info("Sent newsletter with %d items to %d recipient(s).", len(all_items), len(recipients))
 
     if args.test_to:
         logger.info("Test send: state file unchanged.")

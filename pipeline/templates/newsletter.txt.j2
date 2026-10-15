@@ -56,3 +56,9 @@ Not available in this issue: {{ failed_sources|join(', ') }}
 
 --
 Generated automatically by paper_porn.
+{% if unsubscribe_url %}
+Unsubscribe: {{ unsubscribe_url }}
+{% endif %}
+{% if imprint_url %}
+Imprint: {{ imprint_url }}
+{% endif %}

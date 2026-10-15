@@ -12,6 +12,8 @@ class NewsletterSettings:
     window_days: int
     subject: str
     sender: str
+    delivery: str                  # "smtp" or "brevo"
+    imprint_url: str
     state_file: Path
     state_retention_days: int
     top_k: dict[str, int]
@@ -28,6 +30,13 @@ class LLMSettings:
 
 
 @dataclass(frozen=True)
+class BrevoSettings:
+    list_ids: list[int]
+    sender_email: str
+    sender_name: str
+
+
+@dataclass(frozen=True)
 class Settings:
     profile: str
     exclude_keywords: list[str]
@@ -36,6 +45,7 @@ class Settings:
     blog_feeds: list[str]
     newsletter: NewsletterSettings
     llm: LLMSettings
+    brevo: BrevoSettings
     raw: dict = field(repr=False, default_factory=dict)
 
 
@@ -49,6 +59,7 @@ def load_settings(path: str | Path | None = None) -> Settings:
     sources = raw["sources"]
     nl = raw.get("newsletter", {})
     llm = raw.get("llm", {})
+    brevo = raw.get("brevo", {})
 
     state_file = Path(nl.get("state_file", "state/sent_items.json"))
     if not state_file.is_absolute():
@@ -64,6 +75,8 @@ def load_settings(path: str | Path | None = None) -> Settings:
             window_days=nl.get("window_days", 7),
             subject=nl.get("subject", "paper_porn Weekly"),
             sender=nl.get("sender", ""),
+            delivery=nl.get("delivery", "smtp"),
+            imprint_url=nl.get("imprint_url", ""),
             state_file=state_file,
             state_retention_days=nl.get("state_retention_days", 180),
             top_k={
@@ -78,6 +91,11 @@ def load_settings(path: str | Path | None = None) -> Settings:
             enabled=llm.get("enabled", True),
             model=llm.get("model", "gemini-3.8-flash"),
             glossary_known_terms=list(llm.get("glossary_known_terms", [])),
+        ),
+        brevo=BrevoSettings(
+            list_ids=[int(i) for i in brevo.get("list_ids", [])],
+            sender_email=brevo.get("sender_email", ""),
+            sender_name=brevo.get("sender_name", ""),
         ),
         raw=raw,
     )

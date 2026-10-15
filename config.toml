@@ -22,11 +22,18 @@ blog_feeds = [
 ]
 
 [newsletter]
+# How the newsletter is delivered:
+#   "smtp"  -> pipeline/mailer.py, recipients from NEWSLETTER_RECIPIENTS, needs SMTP_* variables
+#   "brevo" -> pipeline/brevo_mailer.py, recipients = Brevo contact list(s) from [brevo], needs BREVO_API_KEY;
+#              Brevo handles unsubscribes, bounces and statistics
+delivery = "brevo"
+# Link to your legal notice (Impressum), shown in the footer of every issue. Leave empty to omit.
+imprint_url = "https://www.ws-productions.de/impressum"
 window_days = 7
-subject = "paper_porn Weekly: AI & ML of the past week"
-# Sender address. Leave empty to use SMTP_USER. Can be overridden with NEWSLETTER_SENDER.
+subject = "paper_porn weekly: ai & ml of the past week"
+# SMTP only: sender address. Leave empty to use SMTP_USER. Can be overridden with NEWSLETTER_SENDER.
 sender = ""
-# Recipients come exclusively from the NEWSLETTER_RECIPIENTS environment variable (comma-separated).
+# SMTP only: recipients come exclusively from the NEWSLETTER_RECIPIENTS environment variable (comma-separated).
 state_file = "state/sent_items.json"
 # Sent items are removed from the state file after this many days
 state_retention_days = 180
@@ -57,3 +64,11 @@ glossary_known_terms = [
     "dataset", "benchmark", "accuracy", "embedding", "token", "parameter", "gradient descent",
     "overfitting", "loss function", "API", "open source", "cloud", "agent", "prompt",
 ]
+
+[brevo]
+# Only used with delivery = "brevo". The API key comes from the BREVO_API_KEY environment variable.
+# IDs of the Brevo contact lists that receive the newsletter (Contacts -> Lists).
+list_ids = [7]
+# Must be an active sender in Brevo (Senders, Domains & Dedicated IPs), ideally on an authenticated domain.
+sender_email = "info@ws-productions.de"
+sender_name = "lukas kellner"

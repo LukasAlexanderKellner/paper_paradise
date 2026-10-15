@@ -1,5 +1,6 @@
 """End-to-end runner tests with mocked sources and a mocked SMTP server (no network)."""
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,7 +14,10 @@ def env(monkeypatch, tmp_path, sample_items):
     state_file = tmp_path / "state.json"
     config = tmp_path / "config.toml"
     original = (runner.ROOT_DIR / "config.toml").read_text()
-    config.write_text(original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file}"'))
+    config.write_text(
+        original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file}"')
+        .replace('delivery = "brevo"', 'delivery = "smtp"')
+    )
 
     for var, value in {"SMTP_HOST": "smtp.test", "SMTP_PORT": "587", "SMTP_USER": "bot@test",
                        "SMTP_PASSWORD": "x", "NEWSLETTER_RECIPIENTS": "a@test, b@test"}.items():
@@ -135,3 +139,86 @@ def test_test_to_sends_only_there_and_keeps_state(env, monkeypatch):
 def test_dry_run_and_test_to_are_exclusive(env):
     with pytest.raises(SystemExit):
         run(env, "--dry-run", "--test-to", "me@test")
+
+
+
+# --- Brevo delivery ---------------------------------------------------------------------------
+
+class FakeBrevoSession:
+    """Records Brevo API calls and answers like the real API."""
+
+    def __init__(self, fail_on=None):
+        self.headers, self.calls, self.fail_on = {}, [], fail_on
+
+    def request(self, method, url, timeout=None, json=None):
+        path = url.removeprefix("https://api.brevo.com/v3")
+        self.calls.append((method, path, json))
+        if self.fail_on and self.fail_on in path:
+            return SimpleNamespace(status_code=400, json=lambda: {"code": "invalid_parameter", "message": "nope"}, text="")
+        if method == "POST" and path == "/emailCampaigns":
+            return SimpleNamespace(status_code=201, json=lambda: {"id": 42}, text="")
+        return SimpleNamespace(status_code=204, json=lambda: {}, text="")
+
+
+@pytest.fixture
+def brevo_env(env, monkeypatch):
+    env["config"].write_text(env["config"].read_text().replace('delivery = "smtp"', 'delivery = "brevo"'))
+    monkeypatch.setenv("BREVO_API_KEY", "test-key")
+    for var in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "NEWSLETTER_RECIPIENTS"):
+        monkeypatch.delenv(var)  # Brevo needs none of them
+    session = FakeBrevoSession()
+    monkeypatch.setattr(runner.brevo_mailer.requests, "Session", lambda: session)
+    env["brevo"] = session
+    return env
+
+
+def test_brevo_creates_campaign_for_list_sends_it_and_updates_state(brevo_env):
+    assert run(brevo_env) == 0
+    calls = brevo_env["brevo"].calls
+    assert [(m, p) for m, p, _ in calls] == [("POST", "/emailCampaigns"), ("POST", "/emailCampaigns/42/sendNow")]
+    body = calls[0][2]
+    assert body["recipients"] == {"listIds": [7]}
+    assert body["sender"] == {"email": "info@ws-productions.de", "name": "Lukas Kellner"}
+    assert '<a href="{{ unsubscribe }}"' in body["htmlContent"]
+    assert "https://www.ws-productions.de/impressum" in body["htmlContent"]
+    assert brevo_env["brevo"].headers["api-key"] == "test-key"
+    assert brevo_env["sent"] == []  # SMTP untouched
+    assert json.loads(brevo_env["state"].read_text())
+
+
+def test_brevo_send_failure_keeps_state(brevo_env, monkeypatch):
+    session = FakeBrevoSession(fail_on="sendNow")
+    monkeypatch.setattr(runner.brevo_mailer.requests, "Session", lambda: session)
+    assert run(brevo_env) == runner.EXIT_SEND_FAILED
+    assert not brevo_env["state"].exists()
+
+
+def test_brevo_test_send_deletes_draft_and_keeps_state(brevo_env):
+    assert run(brevo_env, "--test-to", "me@test") == 0
+    calls = brevo_env["brevo"].calls
+    assert [(m, p) for m, p, _ in calls] == [
+        ("POST", "/emailCampaigns"), ("POST", "/emailCampaigns/42/sendTest"), ("DELETE", "/emailCampaigns/42")]
+    assert calls[0][2]["subject"].startswith("[TEST] ")
+    assert calls[1][2] == {"emailTo": ["me@test"]}
+    assert not brevo_env["state"].exists()
+
+
+def test_brevo_failed_test_send_still_deletes_draft(brevo_env, monkeypatch):
+    session = FakeBrevoSession(fail_on="sendTest")
+    monkeypatch.setattr(runner.brevo_mailer.requests, "Session", lambda: session)
+    assert run(brevo_env, "--test-to", "unknown@test") == runner.EXIT_SEND_FAILED
+    assert ("DELETE", "/emailCampaigns/42") in [(m, p) for m, p, _ in session.calls]
+
+
+def test_brevo_missing_api_key_fails_before_fetching(brevo_env, monkeypatch):
+    monkeypatch.delenv("BREVO_API_KEY")
+    monkeypatch.setattr(runner, "fetch_all", lambda *a: pytest.fail("should not fetch"))
+    assert run(brevo_env) == runner.EXIT_CONFIG_ERROR
+
+
+def test_smtp_mail_has_imprint_but_no_unsubscribe_placeholder(env):
+    assert run(env) == 0
+    msg, _ = env["sent"][0]
+    html = msg.get_body(("html",)).get_content()
+    assert "https://www.ws-productions.de/impressum" in html
+    assert "{{ unsubscribe }}" not in html

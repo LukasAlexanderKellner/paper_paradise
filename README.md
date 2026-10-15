@@ -5,7 +5,7 @@ Collects new content from the AI and ML world and filters it against a personal 
 The project has two entry points built on the same logic:
 
 - **MCP server** (`paperporn_mcp.py`): Claude Desktop or any other MCP client calls the sources as tools on demand.
-- **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email. Runs automatically via GitHub Actions every Monday at 9:30 (Europe/Berlin).
+- **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email, either via SMTP or as a [Brevo](https://www.brevo.com) campaign to a subscriber list. Runs automatically via GitHub Actions every Monday at 9:30 (Europe/Berlin).
 
 ## Sources
 
@@ -51,7 +51,8 @@ paper_porn/
 │   ├── state.py
 │   ├── llm.py
 │   ├── render.py
-│   ├── mailer.py
+│   ├── mailer.py            # delivery via SMTP
+│   ├── brevo_mailer.py      # delivery as a Brevo campaign
 │   └── templates/           # Jinja2 templates (HTML and plain text)
 ├── state/sent_items.json    # items already sent (committed by Actions)
 ├── tests/
@@ -76,7 +77,7 @@ On first start, `sentence-transformers` downloads the embedding model (about 90 
 
 ### `config.toml`
 
-All content settings live in [`config.toml`](config.toml). The file is part of the repo, so it must **not contain credentials or email addresses**.
+All content settings live in [`config.toml`](config.toml). The file is part of the repo, so it must **not contain credentials or recipient addresses**.
 
 | Section | Key | Meaning |
 |---|---|---|
@@ -85,15 +86,19 @@ All content settings live in [`config.toml`](config.toml). The file is part of t
 | `[sources]` | `arxiv_categories` | arXiv categories, e.g. `cs.LG` |
 | | `github_topics` | GitHub topics, each queried separately |
 | | `blog_feeds` | RSS feed URLs |
-| `[newsletter]` | `window_days` | Time window in days (default: 7) |
+| `[newsletter]` | `delivery` | `"smtp"` or `"brevo"`, see [Delivery via Brevo](#delivery-via-brevo) |
+| | `imprint_url` | Link to your legal notice, shown in the footer of every issue (empty: no link) |
+| | `window_days` | Time window in days (default: 7) |
 | | `subject` | Subject line |
-| | `sender` | Sender address, empty means `SMTP_USER` |
+| | `sender` | SMTP only: sender address, empty means `SMTP_USER` |
 | | `state_file`, `state_retention_days` | State file and how long entries stay in it |
 | `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Number of items per section |
 | `[newsletter.arxiv]` | `max_fetch` | Upper limit for the weekly query (a week has roughly 2,000–2,500 papers) |
 | `[newsletter.github]` | `min_stars`, `max_fetch` | Minimum stars, candidates per topic |
 | `[llm]` | `enabled`, `model` | Gemini summary and glossary on/off, Gemini model (default `gemini-3.8-flash`) |
 | | `glossary_known_terms` | Terms you already know; they never appear in the glossary. Extend it to fine-tune the glossary |
+| `[brevo]` | `list_ids` | Brevo only: IDs of the contact lists that receive the newsletter |
+| | `sender_email`, `sender_name` | Brevo only: sender, must be an active sender in Brevo |
 
 **Glossary language:** The glossary translates and explains terms in German. To change that, edit the last sentences of `GLOSSARY_INSTRUCTIONS` in [`pipeline/llm.py`](pipeline/llm.py). Terms the model returns that do not appear in the newsletter text are dropped and logged, so the glossary never explains words you won't read.
 
@@ -109,9 +114,10 @@ cp .env.example .env
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `SMTP_HOST`, `SMTP_PORT` | for sending | SMTP server. Port 465 uses SSL, any other port uses STARTTLS (e.g. 587) |
-| `SMTP_USER`, `SMTP_PASSWORD` | for sending | Login (for Gmail, an [app password](https://myaccount.google.com/apppasswords)) |
-| `NEWSLETTER_RECIPIENTS` | for sending | Recipients, comma-separated. They receive the mail as Bcc and cannot see each other |
+| `BREVO_API_KEY` | for `delivery = "brevo"` | Brevo API key (**SMTP & API → API Keys**) |
+| `SMTP_HOST`, `SMTP_PORT` | for `delivery = "smtp"` | SMTP server. Port 465 uses SSL, any other port uses STARTTLS (e.g. 587) |
+| `SMTP_USER`, `SMTP_PASSWORD` | for `delivery = "smtp"` | Login (for Gmail, an [app password](https://myaccount.google.com/apppasswords)) |
+| `NEWSLETTER_RECIPIENTS` | for `delivery = "smtp"` | Recipients, comma-separated. They receive the mail as Bcc and cannot see each other |
 | `NEWSLETTER_SENDER` | no | Overrides `sender` from `config.toml` |
 | `GEMINI_API_KEY` | no | Enables the Gemini summary and "why it matters" texts ([get a key](https://aistudio.google.com/apikey)) |
 | `GITHUB_TOKEN` | no | Higher rate limit for GitHub search (without a token: 10 requests per minute) |
@@ -156,7 +162,8 @@ If a source fails, it appears in the log as `ERROR` and in the file under "Not a
 
 Common problems with the test send:
 
-- **Exit code 4, "Missing environment variables":** An SMTP variable is missing from `.env`.
+- **Exit code 4, "Missing environment variables" / "Missing Brevo settings":** A variable is missing from `.env` (SMTP: `SMTP_*`, Brevo: `BREVO_API_KEY`) or `[brevo]` in `config.toml` is incomplete.
+- **Brevo: `400` on `sendTest` with `unexistingEmails` or `withoutListEmails`:** Brevo only sends test mails to addresses that exist as contacts in your account. Add the address as a contact first.
 - **`SMTPAuthenticationError`:** Username or password is wrong. Gmail and many other providers require an app password instead of your regular password.
 - **Timeout or `ConnectionRefusedError`:** Host or port is wrong. Common ports are 587 (STARTTLS) and 465 (SSL).
 - **No summary at the top of the mail:** `GEMINI_API_KEY` is not set, or the Gemini call failed (the log says which). The newsletter still works, just without the summary and "why it matters" texts.
@@ -178,9 +185,22 @@ Only run a real send locally if you actually mean it. It marks all included item
 | 0 | Success, or there were no new items |
 | 2 | All sources failed, nothing was sent |
 | 3 | Sending failed, state unchanged |
-| 4 | SMTP settings or recipients missing |
+| 4 | SMTP/Brevo settings or recipients missing |
 
 If only some sources fail, the newsletter goes out with the remaining ones and lists the missing sources at the end of the mail.
+
+## Delivery via Brevo
+
+With `delivery = "brevo"`, the newsletter is not sent by this code but created as a campaign in your [Brevo](https://www.brevo.com) account and sent by Brevo to your contact list. Brevo handles sign-up forms, double opt-in, unsubscribes, bounces and statistics. The code lives in [`pipeline/brevo_mailer.py`](pipeline/brevo_mailer.py); [`pipeline/mailer.py`](pipeline/mailer.py) stays available for plain SMTP.
+
+What a run does:
+
+1. Create a draft campaign with the rendered HTML for the lists in `[brevo] list_ids` (`POST /v3/emailCampaigns`).
+2. Send it right away (`POST /v3/emailCampaigns/{id}/sendNow`).
+3. Update the state file, as with SMTP.
+
+`--test-to <address>` creates a temporary campaign, sends it with Brevo's test function (`sendTest`) and deletes the draft again. `--dry-run` works as before; the unsubscribe link in the file is then the literal placeholder `{{ unsubscribe }}`.
+
 
 ## Automatic sending with GitHub Actions
 
@@ -197,11 +217,9 @@ The workflow [`.github/workflows/newsletter.yml`](.github/workflows/newsletter.y
 
    | Secret | Required |
    |---|---|
-   | `SMTP_HOST` | yes |
-   | `SMTP_PORT` | yes |
-   | `SMTP_USER` | yes |
-   | `SMTP_PASSWORD` | yes |
-   | `NEWSLETTER_RECIPIENTS` | yes |
+   | `BREVO_API_KEY` | with `delivery = "brevo"` |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | with `delivery = "smtp"` |
+   | `NEWSLETTER_RECIPIENTS` | with `delivery = "smtp"` |
    | `NEWSLETTER_SENDER` | no |
    | `GEMINI_API_KEY` | no |
 
