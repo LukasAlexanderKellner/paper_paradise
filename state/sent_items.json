@@ -1,1 +1,22 @@
-{}
+{
+  "arxiv:2609.39601": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.12572": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.16980": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.17035": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.17391": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.18615": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.20571": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.20584": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.21055": "2026-10-16T12:37:52+00:00",
+  "arxiv:2610.21482": "2026-10-16T12:37:52+00:00",
+  "https://alphasignal.ai/news/tsinghua-researchers-show-backdoored-ai-models-steal-94-9-of-private-training": "2026-10-16T12:37:52+00:00",
+  "https://github.com/Optima-CityU/OpenArchEvo": "2026-10-16T12:37:52+00:00",
+  "https://github.com/anisayari/sparky": "2026-10-16T12:37:52+00:00",
+  "https://github.com/deeplethe/solid-glass": "2026-10-16T12:37:52+00:00",
+  "https://github.com/rzc156/dreamforge": "2026-10-16T12:37:52+00:00",
+  "https://github.com/vakandi/opencode-rust": "2026-10-16T12:37:52+00:00",
+  "https://huggingface.co/blog/meta-muse-spark-open": "2026-10-16T12:37:52+00:00",
+  "https://huggingface.co/blog/nvidia/scaling-indic-pretraining": "2026-10-16T12:37:52+00:00",
+  "https://pytorch.org/blog/bringing-executorch-to-arm-cortex-m-cpus/": "2026-10-16T12:37:52+00:00",
+  "https://pytorch.org/blog/muse-spark-open/": "2026-10-16T12:37:52+00:00"
+}
