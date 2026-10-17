@@ -11,6 +11,8 @@ from core.models import Item
 logger = logging.getLogger(__name__)
 
 GLOSSARY_MAX_TERMS = 20
+# A rewrite sharing this many consecutive words with the original counts as copied and is dropped
+MAX_COPIED_WORDS = 8
 
 SYSTEM_PROMPT = (
     "You write the opening of a weekly AI/ML newsletter for a single reader. "
@@ -47,6 +49,11 @@ class ItemNote(BaseModel):
     why: str = Field(description="1-2 sentences on why the item is relevant to the reader's profile")
 
 
+class Rewrite(BaseModel):
+    key: str = Field(description="key of a blog item, exactly as given")
+    summary: str = Field(description="1-2 sentences summarizing the post in your own words")
+
+
 class GlossaryEntry(BaseModel):
     term: str = Field(description="English term exactly as written in the text")
     translation: str = Field(description="German term")
@@ -59,6 +66,7 @@ class Digest(BaseModel):
     highlights: list[Highlight] = Field(description="the 3-5 most exciting items")
     notes: list[ItemNote] = Field(description="one note for every item")
     glossary: list[GlossaryEntry] = Field(description="the 10-20 hardest terms of this newsletter")
+    rewrites: list[Rewrite] = Field(description='one own-words summary for every item with source "blogs"')
 
 
 @dataclass
@@ -68,6 +76,8 @@ class Annotations:
     highlights: list[tuple[Item, str]] = field(default_factory=list)
     why: dict[str, str] = field(default_factory=dict)
     glossary: list[GlossaryEntry] = field(default_factory=list)
+    rewrites: dict[str, str] = field(default_factory=dict)  # blog item key -> own-words summary
+    generated: bool = False                                  # True if the Gemini call succeeded
 
 
 def _build_prompt(profile: str, items: list[Item], known_terms: list[str]) -> str:
@@ -88,8 +98,38 @@ def _build_prompt(profile: str, items: list[Item], known_terms: list[str]) -> st
         "2. summary: 5 to 6 sentences on the most exciting findings across all items, connecting the main themes.\n"
         "3. highlights: the 3 to 5 most exciting items (same key), each with a 1-2 sentence takeaway of its finding.\n"
         "4. notes: for every item (same key) 1 to 2 sentences on why it is relevant to this profile.\n"
-        + GLOSSARY_INSTRUCTIONS.format(known_terms=", ".join(known_terms) or "none")
+        + GLOSSARY_INSTRUCTIONS.format(known_terms=", ".join(known_terms) or "none") + "\n"
+        # Blog teasers are copyrighted text of their publishers, so they are never shown verbatim
+        + '6. rewrites: for every item whose source is "blogs" and whose summary is not empty (same key), '
+        "1 to 2 sentences in English that summarize the post in your own words, using only the given summary. Do not copy sentences or phrases from the provided summary; "
+        "rephrase completely and keep only technical terms and names."
     )
+
+
+def _copies_original(rewrite: str, original: str, max_words: int = MAX_COPIED_WORDS) -> bool:
+    """True if the rewrite contains a run of max_words consecutive words from the original."""
+    def words(text):
+        return [w.strip(".,;:!?()\"'").lower() for w in text.split()]
+
+    original_words = words(original)
+    runs = {tuple(original_words[i:i + max_words]) for i in range(len(original_words) - max_words + 1)}
+    rewrite_words = words(rewrite)
+    return any(tuple(rewrite_words[i:i + max_words]) in runs for i in range(len(rewrite_words) - max_words + 1))
+
+
+def _clean_rewrites(rewrites: list[Rewrite], items: list[Item]) -> dict[str, str]:
+    blogs = {item.key: item for item in items if item.source == "blogs"}
+    cleaned = {}
+    for r in rewrites:
+        text = r.summary.strip()
+        # Without a teaser there is nothing to rephrase; a rewrite could only be invented from the title
+        if r.key not in blogs or not text or not (blogs[r.key].summary or "").strip():
+            continue
+        if _copies_original(text, blogs[r.key].summary or ""):
+            logger.info("Rewrite for %s dropped: too close to the original text.", r.key)
+            continue
+        cleaned[r.key] = text
+    return cleaned
 
 
 def _clean_glossary(entries: list[GlossaryEntry], newsletter_text: str) -> list[GlossaryEntry]:
@@ -151,6 +191,8 @@ def annotate(settings: Settings, items: list[Item], client=None) -> Annotations:
             [digest.headline, digest.summary] + [f"{i.title} {i.summary or ''}" for i in items]
         )
         return Annotations(
+            generated=True,
+            rewrites=_clean_rewrites(digest.rewrites, items),
             glossary=_clean_glossary(digest.glossary, newsletter_text),
             headline=digest.headline.strip() or None,
             summary=digest.summary.strip() or None,

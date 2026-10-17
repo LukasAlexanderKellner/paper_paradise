@@ -99,3 +99,10 @@ def test_blog_relevance_is_shown_when_scored(sample_items):
     html, text = render(sample_items)
     assert "Blog - PyTorch · relevance 0.51" in html
     assert "  Blog - PyTorch, relevance 0.51\n" in text
+
+
+def test_ai_notice_only_when_ai_text_is_included(sample_items):
+    html, text = render(sample_items)
+    assert "AI-generated" not in html and "AI-generated" not in text
+    html, text = render(sample_items, ai_notice=True)
+    assert "AI-generated (Google Gemini)" in html and "AI-generated (Google Gemini)" in text

@@ -108,3 +108,7 @@ def test_without_window_only_newest_posts_are_candidates(monkeypatch):
     items = sources.fetch_blogs(settings_with(["https://blog.test/feed"]), top_k=100)
     assert len(items) == sources.FEED_RECENT_ENTRIES
     assert {"Newer post", "Older post"} <= {i.title for i in items}
+
+
+def test_html_entities_in_teasers_are_decoded():
+    assert sources._strip_html("<p>IBM&#8217;s Spyre &amp; PyTorch</p>") == "IBM\u2019s Spyre & PyTorch"

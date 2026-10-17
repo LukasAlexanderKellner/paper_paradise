@@ -56,6 +56,9 @@ Not available in this issue: {{ failed_sources|join(', ') }}
 
 --
 Generated automatically by paper_porn.
+{% if ai_notice %}
+The summary, glossary, "why it matters" notes and blog summaries in this issue are AI-generated (Google Gemini) and may contain errors. Please refer to the linked original sources.
+{% endif %}
 {% if unsubscribe_url %}
 Unsubscribe: {{ unsubscribe_url }}
 {% endif %}

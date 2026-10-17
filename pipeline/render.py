@@ -32,6 +32,7 @@ class NewsletterContext:
     summary: str | None = None                                      # LLM: 5-6 sentences
     highlights: list[tuple[Item, str]] = field(default_factory=list)  # LLM: (item, takeaway)
     glossary: list = field(default_factory=list)                     # LLM: GlossaryEntry(term, translation, explanation)
+    ai_notice: bool = False                                          # footer note on AI-generated text (EU AI Act Art. 50)
     imprint_url: str = ""                                            # legal notice link in the footer
     unsubscribe_url: str = ""                                        # e.g. Brevo's "{{ unsubscribe }}" placeholder
 
@@ -70,6 +71,7 @@ def render_newsletter(ctx: NewsletterContext) -> tuple[str, str]:
         "headline": ctx.headline,
         "glossary": ctx.glossary,
         "imprint_url": ctx.imprint_url,
+        "ai_notice": ctx.ai_notice,
         "unsubscribe_url": ctx.unsubscribe_url,
         "summary": ctx.summary,
         "highlights": [{"item": item, "takeaway": takeaway} for item, takeaway in ctx.highlights],

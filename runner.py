@@ -132,6 +132,9 @@ def main(argv: list[str] | None = None) -> int:
     if annotations:
         for item in all_items:
             item.why = annotations.why.get(item.key)
+            # Blog teasers belong to their publishers: show Gemini's own-words version instead
+            if item.source == "blogs" and annotations.generated:
+                item.summary = annotations.rewrites.get(item.key, "")
 
     html, text = render_newsletter(NewsletterContext(
         sections=selected,
@@ -142,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         summary=annotations.summary if annotations else None,
         highlights=annotations.highlights if annotations else [],
         glossary=annotations.glossary if annotations else [],
+        ai_notice=bool(annotations and annotations.generated),
         imprint_url=settings.newsletter.imprint_url,
         # Brevo fills in each contact's personal unsubscribe link
         unsubscribe_url=brevo_mailer.UNSUBSCRIBE_PLACEHOLDER if delivery == "brevo" else "",

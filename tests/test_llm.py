@@ -7,7 +7,8 @@ from tests.conftest import make_item
 
 ITEMS = [
     make_item("arxiv", "arxiv:1", title="On-Policy Distillation with RLVR", summary="Uses KV cache quantization."),
-    make_item("blogs", "https://x/1"),
+    make_item("blogs", "https://x/1", summary="The team rebuilt the GPU scheduler from scratch and cut average queue wait times by 87 percent across the cluster."),
+    make_item("blogs", "https://x/2", summary="Short teaser about distributed training."),
 ]
 
 DIGEST = {
@@ -15,6 +16,11 @@ DIGEST = {
     "summary": "Sentence one. Sentence two.",
     "highlights": [{"key": "arxiv:1", "takeaway": "A new finding."}, {"key": "unknown", "takeaway": "x"}],
     "notes": [{"key": "arxiv:1", "why": "Fits."}, {"key": "unknown", "why": "x"}],
+    "rewrites": [
+        {"key": "https://x/1", "summary": "A rebuilt scheduler makes jobs wait far less on shared GPUs."},
+        {"key": "https://x/2", "summary": "The team rebuilt the GPU scheduler from scratch and cut average queue wait times by 87 percent across the cluster."},
+        {"key": "arxiv:1", "summary": "Not a blog item, must be ignored."},
+    ],
     "glossary": [
         {"term": "On-Policy Distillation", "translation": "On-Policy-Destillation",
          "explanation": "Ein Schüler-Modell lernt aus eigenen Ausgaben."},
@@ -89,3 +95,38 @@ def test_empty_or_invalid_response_is_swallowed():
     assert annotate(load_settings(), ITEMS, client=FakeGemini(text=None)).summary is None
     assert annotate(load_settings(), ITEMS, client=FakeGemini(text="{nope")).summary is None
     assert annotate(load_settings(), ITEMS, client=FakeGemini(text=json.dumps({"headline": "x"}))).summary is None
+
+
+def test_blog_rewrites_are_kept_unless_copied():
+    result = annotate(load_settings(), ITEMS, client=FakeGemini(json.dumps(DIGEST)))
+    assert result.generated is True
+    # x/1 is in own words -> kept; arxiv:1 is not a blog item -> ignored
+    assert result.rewrites["https://x/1"] == "A rebuilt scheduler makes jobs wait far less on shared GPUs."
+    assert "arxiv:1" not in result.rewrites
+
+
+def test_rewrite_copying_the_original_is_dropped():
+    digest = dict(DIGEST, rewrites=[{"key": "https://x/1", "summary": "In short: " + ITEMS[1].summary}])
+    result = annotate(load_settings(), ITEMS, client=FakeGemini(json.dumps(digest)))
+    assert "https://x/1" not in result.rewrites
+
+
+def test_copy_detection_threshold():
+    from pipeline.llm import _copies_original
+    original = "one two three four five six seven eight nine ten"
+    assert _copies_original("Intro: one two three four five six seven eight, done.", original)
+    assert not _copies_original("Intro: one two three four five six seven, done.", original)
+
+
+def test_prompt_asks_for_own_words_blog_summaries():
+    client = FakeGemini(json.dumps(DIGEST))
+    annotate(load_settings(), ITEMS, client=client)
+    prompt = client.calls[0]["contents"]
+    assert "own words" in prompt and "Do not copy sentences or phrases" in prompt
+
+
+def test_no_rewrite_for_blog_without_teaser():
+    items = ITEMS + [make_item("blogs", "https://x/empty", summary="")]
+    digest = dict(DIGEST, rewrites=DIGEST["rewrites"] + [{"key": "https://x/empty", "summary": "Invented from title."}])
+    result = annotate(load_settings(), items, client=FakeGemini(json.dumps(digest)))
+    assert "https://x/empty" not in result.rewrites

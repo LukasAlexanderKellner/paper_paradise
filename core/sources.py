@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 import re
@@ -321,4 +322,5 @@ def fetch_blogs(
 
 
 def _strip_html(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    return re.sub(r"\s+", " ", html.unescape(text)).strip()  # also decode entities like &#8217;

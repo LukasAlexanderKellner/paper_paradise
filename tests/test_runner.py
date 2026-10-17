@@ -7,6 +7,7 @@ import pytest
 import runner
 from core.models import SourceError
 from pipeline.llm import Annotations
+from tests.conftest import make_item
 
 
 @pytest.fixture
@@ -177,8 +178,9 @@ def test_brevo_creates_campaign_for_list_sends_it_and_updates_state(brevo_env):
     calls = brevo_env["brevo"].calls
     assert [(m, p) for m, p, _ in calls] == [("POST", "/emailCampaigns"), ("POST", "/emailCampaigns/42/sendNow")]
     body = calls[0][2]
-    assert body["recipients"] == {"listIds": [7]}
-    assert body["sender"] == {"email": "info@ws-productions.de", "name": "Lukas Kellner"}
+    brevo = runner.load_settings(brevo_env["config"]).brevo
+    assert body["recipients"] == {"listIds": brevo.list_ids}
+    assert body["sender"] == {"email": brevo.sender_email, "name": brevo.sender_name}
     assert '<a href="{{ unsubscribe }}"' in body["htmlContent"]
     assert "https://www.ws-productions.de/impressum" in body["htmlContent"]
     assert brevo_env["brevo"].headers["api-key"] == "test-key"
@@ -222,3 +224,24 @@ def test_smtp_mail_has_imprint_but_no_unsubscribe_placeholder(env):
     html = msg.get_body(("html",)).get_content()
     assert "https://www.ws-productions.de/impressum" in html
     assert "{{ unsubscribe }}" not in html
+
+
+
+def test_blog_teaser_is_replaced_by_gemini_rewrite_and_footer_notice(env, monkeypatch):
+    monkeypatch.setattr(runner, "annotate", lambda settings, items: Annotations(
+        generated=True, rewrites={"https://pytorch.org/blog/x": "Own words about the PyTorch post."}))
+    blog_text_before = "Original teaser that must not appear."
+    monkeypatch.setattr(runner.sources, "fetch_blogs", lambda settings, **kw: [
+        make_item("blogs", "https://pytorch.org/blog/x", title="Blog X", url="https://pytorch.org/blog/x",
+                  summary=blog_text_before, meta={"feed": "Blog - PyTorch"})])
+    assert run(env) == 0
+    text = env["sent"][0][0].get_body(("plain",)).get_content()
+    assert "Own words about the PyTorch post." in text
+    assert blog_text_before not in text
+    assert "AI-generated (Google Gemini)" in text
+
+
+def test_without_gemini_no_ai_notice(env):
+    assert run(env) == 0
+    text = env["sent"][0][0].get_body(("plain",)).get_content()
+    assert "AI-generated" not in text
