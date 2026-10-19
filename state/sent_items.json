@@ -1,1 +1,22 @@
-{}
+{
+  "arxiv:2610.17035": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.18615": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.18773": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.18829": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.21055": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.21601": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.22276": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.22731": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.22925": "2026-10-19T14:56:11+00:00",
+  "arxiv:2610.23072": "2026-10-19T14:56:11+00:00",
+  "https://alphasignal.ai/news/replit-s-byoc-lets-enterprises-run-its-ai-coding-agent-in-their-own-cloud": "2026-10-19T14:56:11+00:00",
+  "https://github.com/IntersectSponsor/windows-cuda-local-ai-setup-helper": "2026-10-19T14:56:11+00:00",
+  "https://github.com/aalbata/machine-learning-for-cybersecurity": "2026-10-19T14:56:11+00:00",
+  "https://github.com/deeplethe/solid-glass": "2026-10-19T14:56:11+00:00",
+  "https://github.com/duyongan/dots-agent": "2026-10-19T14:56:11+00:00",
+  "https://github.com/jwuthri-cloud/AiComicBook": "2026-10-19T14:56:11+00:00",
+  "https://huggingface.co/blog/meta-muse-spark-open": "2026-10-19T14:56:11+00:00",
+  "https://huggingface.co/blog/nvidia/scaling-indic-pretraining": "2026-10-19T14:56:11+00:00",
+  "https://pytorch.org/blog/bringing-executorch-to-arm-cortex-m-cpus/": "2026-10-19T14:56:11+00:00",
+  "https://pytorch.org/blog/introducing-torchneuron-native-pytorch-backend-for-aws-trainium/": "2026-10-19T14:56:11+00:00"
+}
