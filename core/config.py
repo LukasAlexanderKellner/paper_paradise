@@ -50,8 +50,8 @@ class Settings:
 
 
 def load_settings(path: str | Path | None = None) -> Settings:
-    """Load config.toml (or PAPERPORN_CONFIG) into typed settings."""
-    path = Path(path or os.environ.get("PAPERPORN_CONFIG") or DEFAULT_CONFIG_PATH)
+    """Load config.toml (or PAPER_PARADISE_CONFIG) into typed settings."""
+    path = Path(path or os.environ.get("PAPER_PARADISE_CONFIG") or DEFAULT_CONFIG_PATH)
     with open(path, "rb") as f:
         raw = tomllib.load(f)
 
@@ -73,7 +73,7 @@ def load_settings(path: str | Path | None = None) -> Settings:
         blog_feeds=list(sources["blog_feeds"]),
         newsletter=NewsletterSettings(
             window_days=nl.get("window_days", 7),
-            subject=nl.get("subject", "paper_porn Weekly"),
+            subject=nl.get("subject", "paper_paradise Weekly"),
             sender=nl.get("sender", ""),
             delivery=nl.get("delivery", "smtp"),
             imprint_url=nl.get("imprint_url", ""),

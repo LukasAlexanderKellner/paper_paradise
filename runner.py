@@ -78,7 +78,7 @@ def select(settings: Settings, items_by_source: dict[str, list[Item]], state: di
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Weekly paper_porn newsletter")
+    parser = argparse.ArgumentParser(description="Weekly paper_paradise newsletter")
     parser.add_argument("--dry-run", action="store_true",
                         help="write HTML/text locally instead of sending, leave the state file unchanged")
     parser.add_argument("--test-to", metavar="ADDRESS",
@@ -162,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     subject = f"[TEST] {settings.newsletter.subject}" if args.test_to else settings.newsletter.subject
     try:
         if delivery == "brevo":
-            name = f"paper_porn {now:%Y-%m-%d}" + (" TEST" if args.test_to else "")
+            name = f"paper_paradise {now:%Y-%m-%d}" + (" TEST" if args.test_to else "")
             preview = annotations.headline if annotations else None
             if args.test_to:
                 brevo_mailer.send_test(brevo, [args.test_to], name, subject, html, preview)

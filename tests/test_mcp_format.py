@@ -8,8 +8,8 @@ from tests.conftest import make_item
 def load_server(monkeypatch):
     # Avoid loading the embedding model on import
     monkeypatch.setattr("core.ranking.get_embedder", lambda: None)
-    sys.modules.pop("paperporn_mcp", None)
-    return importlib.import_module("paperporn_mcp")
+    sys.modules.pop("paper_paradise_mcp", None)
+    return importlib.import_module("paper_paradise_mcp")
 
 
 def test_github_format(monkeypatch):

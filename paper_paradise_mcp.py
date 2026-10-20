@@ -14,7 +14,7 @@ logging.getLogger("core").setLevel(logging.INFO)
 
 # Load configs
 settings = load_settings()
-PORN_CATEGORIES = settings.arxiv_categories
+ARXIV_CATEGORIES = settings.arxiv_categories
 
 # Initialize FastMCP Server
 mcp = FastMCP("Smart arXiv & AI News Agent")
@@ -93,7 +93,7 @@ def format_blogs(items: list[Item]) -> str:
 
 @mcp.tool()
 def fetch_filtered_arxiv_papers(
-    categories: list[str] = PORN_CATEGORIES,
+    categories: list[str] = ARXIV_CATEGORIES,
     max_fetch: int = 30,
     top_k: int = 5
 ) -> str:

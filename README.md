@@ -1,10 +1,10 @@
-# paper_porn
+# paper_paradise
 
 Collects new content from the AI and ML world and filters it against a personal interest profile: arXiv papers, Hugging Face Daily Papers, new GitHub repositories and engineering blog posts.
 
 The project has two entry points built on the same logic:
 
-- **MCP server** (`paperporn_mcp.py`): Claude Desktop or any other MCP client calls the sources as tools on demand.
+- **MCP server** (`paper_paradise_mcp.py`): Claude Desktop or any other MCP client calls the sources as tools on demand.
 - **Newsletter pipeline** (`runner.py`): Once a week, collects all sources over the past 7 days, removes duplicates and items that were already sent, and sends an HTML email, either via SMTP or as a [Brevo](https://www.brevo.com) campaign to a subscriber list. Runs automatically via GitHub Actions every Monday at 9:30 (Europe/Berlin).
 
 ## Sources
@@ -36,10 +36,10 @@ The MCP tools do not use the state file. They always show the current state.
 ## Project structure
 
 ```
-paper_porn/
+paper_paradise/
 ├── config.toml              # profile, filters, sources, newsletter settings
 ├── .env.example             # template for credentials (locally as .env)
-├── paperporn_mcp.py         # MCP server: thin wrapper that formats results as text
+├── paper_paradise_mcp.py         # MCP server: thin wrapper that formats results as text
 ├── runner.py                # newsletter pipeline
 ├── core/                    # fetching and ranking, no MCP dependency
 │   ├── config.py            # loads config.toml
@@ -64,8 +64,8 @@ paper_porn/
 Requires Python 3.11 or newer (developed with 3.14).
 
 ```bash
-git clone <repo-url> paper_porn
-cd paper_porn
+git clone <repo-url> paper_paradise
+cd paper_paradise
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt   # includes requirements.txt and pytest
@@ -158,7 +158,7 @@ If a source fails, it appears in the log as `ERROR` and in the file under "Not a
 
    The mail goes **only** to this address; `NEWSLETTER_RECIPIENTS` is ignored.
 3. The log should end with `Sent newsletter with N items to 1 recipient(s).` followed by `Test send: state file unchanged.`
-4. The mail arrives with the subject `[TEST] paper_porn Weekly: …`. If you can't find it, check your spam folder.
+4. The mail arrives with the subject `[TEST] paper_paradise Weekly: …`. If you can't find it, check your spam folder.
 
 Common problems with the test send:
 
@@ -238,7 +238,7 @@ Note: GitHub disables scheduled workflows in repositories with no activity for 6
 First run the server once manually so the embedding model gets downloaded:
 
 ```bash
-.venv/bin/python paperporn_mcp.py
+.venv/bin/python paper_paradise_mcp.py
 ```
 
 Once `Loading semantic embedding model...` appears with no error after it, the server is running and waiting for input on stdin. Stop it with `Ctrl+C`.
@@ -252,9 +252,9 @@ Once `Loading semantic embedding model...` appears with no error after it, the s
    ```json
    {
      "mcpServers": {
-       "paperporn": {
-         "command": "/ABSOLUTE/PATH/TO/paper_porn/.venv/bin/python",
-         "args": ["/ABSOLUTE/PATH/TO/paper_porn/paperporn_mcp.py"],
+       "paper_paradise": {
+         "command": "/ABSOLUTE/PATH/TO/paper_paradise/.venv/bin/python",
+         "args": ["/ABSOLUTE/PATH/TO/paper_paradise/paper_paradise_mcp.py"],
          "env": {
            "GITHUB_TOKEN": "optional_your_token"
          }
@@ -269,11 +269,11 @@ Once `Loading semantic embedding model...` appears with no error after it, the s
 
 4. The four tools should now appear under the tools icon in the chat input. A good test prompt:
 
-   > Using the paperporn tools, give me a short overview: the 3 most relevant arXiv papers, the top 3 Hugging Face papers, 3 new GitHub repos and the latest blog posts.
+   > Using the paper_paradise tools, give me a short overview: the 3 most relevant arXiv papers, the top 3 Hugging Face papers, 3 new GitHub repos and the latest blog posts.
 
 ### Troubleshooting
 
-- **Server doesn't show up or shows an error:** Logs are in `~/Library/Logs/Claude/mcp-server-paperporn.log` on macOS and in `%APPDATA%\Claude\logs\` on Windows.
+- **Server doesn't show up or shows an error:** Logs are in `~/Library/Logs/Claude/mcp-server-paper_paradise.log` on macOS and in `%APPDATA%\Claude\logs\` on Windows.
 - **Timeout on first start:** Usually the embedding model is still downloading. Run the server once manually, then restart Claude Desktop.
 - **`ModuleNotFoundError`:** `command` probably points to the system Python instead of `.venv/bin/python`.
 - **GitHub error 403:** The rate limit was hit. Wait a minute or set `GITHUB_TOKEN`.

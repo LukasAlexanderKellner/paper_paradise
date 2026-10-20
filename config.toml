@@ -30,7 +30,7 @@ delivery = "brevo"
 # Link to your legal notice (Impressum), shown in the footer of every issue. Leave empty to omit.
 imprint_url = "https://www.ws-productions.de/impressum"
 window_days = 7
-subject = "paper_porn weekly: ai & ml of the past week"
+subject = "paper_paradise weekly: ai & ml of the past week"
 # SMTP only: sender address. Leave empty to use SMTP_USER. Can be overridden with NEWSLETTER_SENDER.
 sender = ""
 # SMTP only: recipients come exclusively from the NEWSLETTER_RECIPIENTS environment variable (comma-separated).
