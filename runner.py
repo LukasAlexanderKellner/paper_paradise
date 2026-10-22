@@ -51,7 +51,12 @@ def fetch_all(settings: Settings, now: datetime) -> tuple[dict[str, list[Item]],
     since = now - timedelta(days=nl.window_days)
     fetchers = {
         "huggingface": lambda k: sources.fetch_huggingface(settings, top_k=k, since=since.date(), until=now.date()),
-        "arxiv": lambda k: sources.fetch_arxiv(settings, max_fetch=nl.arxiv_max_fetch, top_k=k, since=since, until=now),
+        # arXiv lists a paper only once it is announced (up to ~3 days after submission), so the
+        # window is shifted back: papers from Friday to Monday morning are not in the API yet
+        "arxiv": lambda k: sources.fetch_arxiv(
+            settings, max_fetch=nl.arxiv_max_fetch, top_k=k,
+            since=since - timedelta(days=nl.arxiv_lag_days), until=now - timedelta(days=nl.arxiv_lag_days),
+        ),
         "github": lambda k: sources.fetch_github(
             settings, top_k=k, days=nl.window_days, min_stars=nl.github_min_stars, max_fetch=nl.github_max_fetch
         ),
