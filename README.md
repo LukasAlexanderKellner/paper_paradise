@@ -282,10 +282,14 @@ Once `Loading semantic embedding model...` appears with no error after it, the s
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 python -m pytest
+ruff check .          # lint; rules in pyproject.toml
 ```
 
 The tests need no network access. They cover deduplication, the state filter, template rendering, the runner's error handling (one or all sources failing, sending failing), the LLM step with a simulated client, and the output format of the MCP tools.
+
+GitHub Actions runs both on every pull request and every push to `main` (`.github/workflows/tests.yml`, read-only token, no secrets).
 
 ## License
 
