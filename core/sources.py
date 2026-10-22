@@ -64,6 +64,10 @@ def fetch_arxiv(
         sort_by=arxiv.SortCriterion.SubmittedDate,
     )
     raw_papers = list(client.results(search))
+    if len(raw_papers) >= max_fetch:
+        # Results come newest first, so the cap silently drops the oldest papers of the window
+        logger.warning("arXiv: max_fetch (%d) reached, the oldest papers of the window were not fetched; "
+                       "raise [newsletter.arxiv] max_fetch.", max_fetch)
 
     papers = [p for p in raw_papers if not is_excluded(settings.exclude_keywords, p.title, p.summary)]
     if not papers:
