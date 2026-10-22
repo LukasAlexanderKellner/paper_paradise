@@ -16,7 +16,7 @@ def env(monkeypatch, tmp_path, sample_items):
     config = tmp_path / "config.toml"
     original = (runner.ROOT_DIR / "config.toml").read_text()
     config.write_text(
-        original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file}"')
+        original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file.as_posix()}"')
         .replace('delivery = "brevo"', 'delivery = "smtp"')
     )
 
