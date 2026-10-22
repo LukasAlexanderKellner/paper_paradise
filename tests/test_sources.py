@@ -41,3 +41,12 @@ def test_reaching_arxiv_max_fetch_is_logged(monkeypatch, caplog, available, warn
     assert len(items) == 3
     assert ("max_fetch (10) reached" in caplog.text) is warned
 
+
+def test_huggingface_entries_without_arxiv_id_are_skipped(monkeypatch):
+    monkeypatch.setattr(sources, "_hf_request", lambda params=None: [
+        {"paper": {"id": None, "title": "No id", "upvotes": 99}},
+        {"paper": {"id": "2610.00001", "title": "With id", "upvotes": 5}},
+    ])
+    items = sources.fetch_huggingface(load_settings(), top_k=5)
+    assert [i.title for i in items] == ["With id"]
+    assert items[0].url == "https://arxiv.org/abs/2610.00001"

@@ -46,3 +46,11 @@ def test_tool_error_messages(monkeypatch):
     assert server.fetch_github_trending_ml_repos() == "GitHub API query failed: pytorch: Status 403"
     monkeypatch.setattr(server.sources, "fetch_arxiv", raise_(TimeoutError("read timed out")))
     assert server.fetch_filtered_arxiv_papers() == "arXiv query failed: TimeoutError: read timed out"
+
+
+def test_excerpt_marks_only_truncated_text(monkeypatch):
+    server = load_server(monkeypatch)
+    short = make_item("arxiv", "arxiv:1", summary="Short abstract.", score=0.5, meta={"categories": ["cs.LG"]})
+    long = make_item("arxiv", "arxiv:2", summary="x" * 500, score=0.5, meta={"categories": ["cs.LG"]})
+    assert "Abstract (excerpt): Short abstract.\n" in server.format_arxiv([short])
+    assert "Abstract (excerpt): " + "x" * 400 + "...\n" in server.format_arxiv([long])

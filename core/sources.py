@@ -130,7 +130,8 @@ def fetch_huggingface(
     unique = {}
     for item in raw:
         paper = item.get("paper", {})
-        unique.setdefault(paper.get("id"), item)
+        if paper.get("id"):  # without an arXiv ID there is no link and no dedupe key
+            unique.setdefault(paper["id"], item)
 
     # Upvotes live in item["paper"], not on the top-level item
     papers = [
