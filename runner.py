@@ -60,8 +60,7 @@ def fetch_all(settings: Settings, now: datetime) -> tuple[dict[str, list[Item]],
         "github": lambda k: sources.fetch_github(
             settings, top_k=k, days=nl.window_days, min_stars=nl.github_min_stars, max_fetch=nl.github_max_fetch
         ),
-        # Feed dates are naive local time (see core.sources.fetch_blogs)
-        "blogs": lambda k: sources.fetch_blogs(settings, top_k=k, since=datetime.now() - timedelta(days=nl.window_days)),
+        "blogs": lambda k: sources.fetch_blogs(settings, top_k=k, since=since),
     }
 
     items_by_source: dict[str, list[Item]] = {}
