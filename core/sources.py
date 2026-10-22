@@ -78,7 +78,7 @@ def fetch_arxiv(
             score=score,
             meta={"categories": p.categories, "abs_url": p.entry_id},
         )
-        for p, score in zip(papers, scores)
+        for p, score in zip(papers, scores, strict=True)
     ]
     items.sort(key=lambda i: i.score, reverse=True)
     return items[:top_k]
@@ -232,7 +232,7 @@ def fetch_github(
                 "since": since,
             },
         )
-        for r, score in zip(candidates, scores)
+        for r, score in zip(candidates, scores, strict=True)
     ]
     items.sort(key=lambda i: i.score, reverse=True)
     return items[:top_k]
@@ -307,7 +307,7 @@ def fetch_blogs(
     # Score all posts in one batch, then sort each feed by relevance (newest first on ties)
     all_entries = [e for entries in per_feed for e in entries]
     scores = similarity_scores(settings.profile, [f"{e.title}. {e.summary}" for e in all_entries])
-    for entry, score in zip(all_entries, scores):
+    for entry, score in zip(all_entries, scores, strict=True):
         entry.score = score
     for entries in per_feed:
         entries.sort(key=lambda e: (e.score, e.date or datetime.min), reverse=True)

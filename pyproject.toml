@@ -1,0 +1,15 @@
+# Tool settings only; dependencies stay in requirements.txt / requirements-dev.txt.
+
+[tool.ruff]
+target-version = "py311"   # README: Python 3.11 or newer
+line-length = 120
+extend-exclude = [".venv", "out", "state"]
+
+[tool.ruff.lint]
+# pycodestyle errors/warnings, pyflakes, bugbear, import order
+select = ["E", "W", "F", "B", "I"]
+# Long lines are left to judgement (prompt texts, test data)
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
