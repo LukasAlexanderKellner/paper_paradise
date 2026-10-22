@@ -277,3 +277,23 @@ def test_arxiv_window_ends_lag_days_before_the_run(env, monkeypatch, sample_item
     # Default lag_days = 3: same 7-day length, shifted back 3 days; Hugging Face is not shifted
     assert arxiv["until"] - arxiv["since"] == timedelta(days=7)
     assert hf["until"] - arxiv["until"].date() == timedelta(days=3)
+
+
+def test_windows_end_at_midnight_utc_of_the_run_day(env, monkeypatch, sample_items):
+    calls = {}
+
+    def capture(name):
+        def fetch(settings, **kw):
+            calls[name] = kw
+            return list(sample_items[name])
+        return fetch
+
+    for name in ("arxiv", "huggingface", "blogs"):
+        monkeypatch.setattr(runner.sources, f"fetch_{name}", capture(name))
+    assert run(env, "--dry-run", "--output-dir", str(env["tmp"] / "out")) == 0
+    since = calls["blogs"]["since"]
+    # A run started late by GitHub gets the same window as an on-time one
+    assert (since.hour, since.minute, since.second, since.microsecond) == (0, 0, 0, 0)
+    assert since.tzinfo is not None
+    assert calls["huggingface"]["until"] == (since + timedelta(days=7)).date()
+    assert calls["arxiv"]["until"] == since + timedelta(days=7 - 3)
