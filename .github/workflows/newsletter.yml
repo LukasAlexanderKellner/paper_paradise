@@ -112,5 +112,21 @@ jobs:
             exit 0
           fi
           git commit -m "chore: update newsletter state [skip ci]"
-          git pull --rebase
-          git push
+          # The newsletter is already sent: a lost state file means the next issue repeats these items
+          for attempt in 1 2 3; do
+            if git pull --rebase && git push; then
+              exit 0
+            fi
+            echo "Pushing the state failed (attempt $attempt), retrying in 15 s."
+            git rebase --abort 2>/dev/null || true
+            sleep 15
+          done
+          exit 1
+
+      - name: Keep the state file if it could not be pushed
+        if: failure() && !inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: newsletter-state
+          path: state/sent_items.json
+          if-no-files-found: ignore
