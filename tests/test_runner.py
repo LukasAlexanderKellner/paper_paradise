@@ -241,6 +241,19 @@ def test_blog_teaser_is_replaced_by_gemini_rewrite_and_footer_notice(env, monkey
     assert "AI-generated (Google Gemini)" in text
 
 
+@pytest.mark.parametrize("args", [(), ("--no-llm",)])
+def test_without_gemini_rewrite_blog_teaser_is_not_sent(env, monkeypatch, args):
+    blog_text_before = "Original teaser that must not appear."
+    monkeypatch.setattr(runner.sources, "fetch_blogs", lambda settings, **kw: [
+        make_item("blogs", "https://pytorch.org/blog/x", title="Blog X", url="https://pytorch.org/blog/x",
+                  summary=blog_text_before, meta={"feed": "Blog - PyTorch"})])
+    assert run(env, *args) == 0
+    msg = env["sent"][0][0]
+    assert "Blog X" in msg.get_body(("plain",)).get_content()
+    assert blog_text_before not in msg.get_body(("plain",)).get_content()
+    assert blog_text_before not in msg.get_body(("html",)).get_content()
+
+
 def test_without_gemini_no_ai_notice(env):
     assert run(env) == 0
     text = env["sent"][0][0].get_body(("plain",)).get_content()

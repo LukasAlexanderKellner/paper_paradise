@@ -129,12 +129,14 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OK
 
     annotations = annotate(settings, all_items) if not args.no_llm else None
-    if annotations:
-        for item in all_items:
+    rewrites = annotations.rewrites if annotations else {}
+    for item in all_items:
+        if annotations:
             item.why = annotations.why.get(item.key)
-            # Blog teasers belong to their publishers: show Gemini's own-words version instead
-            if item.source == "blogs" and annotations.generated:
-                item.summary = annotations.rewrites.get(item.key, "")
+        # Blog teasers belong to their publishers: show Gemini's own-words version instead,
+        # and nothing at all without one (no API key, --no-llm, or the Gemini call failed)
+        if item.source == "blogs":
+            item.summary = rewrites.get(item.key, "")
 
     html, text = render_newsletter(NewsletterContext(
         sections=selected,
