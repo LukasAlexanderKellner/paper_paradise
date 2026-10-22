@@ -120,7 +120,10 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("%s", e)
             return EXIT_CONFIG_ERROR
 
-    items_by_source, failed = fetch_all(settings, now)
+    # Windows end at 00:00 UTC of the run day, so a run GitHub starts late covers the same period
+    # as an on-time one and consecutive weekly runs leave no gap
+    window_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    items_by_source, failed = fetch_all(settings, window_end)
     if not items_by_source:
         logger.error("All sources failed, nothing will be sent.")
         return EXIT_ALL_SOURCES_FAILED
@@ -144,8 +147,8 @@ def main(argv: list[str] | None = None) -> int:
 
     html, text = render_newsletter(NewsletterContext(
         sections=selected,
-        period_start=now - timedelta(days=settings.newsletter.window_days),
-        period_end=now,
+        period_start=window_end - timedelta(days=settings.newsletter.window_days),
+        period_end=window_end,
         failed_sources=failed,
         headline=annotations.headline if annotations else None,
         summary=annotations.summary if annotations else None,
