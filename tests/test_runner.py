@@ -1,5 +1,6 @@
 """End-to-end runner tests with mocked sources and a mocked SMTP server (no network)."""
 import json
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -16,7 +17,7 @@ def env(monkeypatch, tmp_path, sample_items):
     config = tmp_path / "config.toml"
     original = (runner.ROOT_DIR / "config.toml").read_text()
     config.write_text(
-        original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file}"')
+        original.replace('state_file = "state/sent_items.json"', f'state_file = "{state_file.as_posix()}"')
         .replace('delivery = "brevo"', 'delivery = "smtp"')
     )
 
@@ -241,7 +242,38 @@ def test_blog_teaser_is_replaced_by_gemini_rewrite_and_footer_notice(env, monkey
     assert "AI-generated (Google Gemini)" in text
 
 
+@pytest.mark.parametrize("args", [(), ("--no-llm",)])
+def test_without_gemini_rewrite_blog_teaser_is_not_sent(env, monkeypatch, args):
+    blog_text_before = "Original teaser that must not appear."
+    monkeypatch.setattr(runner.sources, "fetch_blogs", lambda settings, **kw: [
+        make_item("blogs", "https://pytorch.org/blog/x", title="Blog X", url="https://pytorch.org/blog/x",
+                  summary=blog_text_before, meta={"feed": "Blog - PyTorch"})])
+    assert run(env, *args) == 0
+    msg = env["sent"][0][0]
+    assert "Blog X" in msg.get_body(("plain",)).get_content()
+    assert blog_text_before not in msg.get_body(("plain",)).get_content()
+    assert blog_text_before not in msg.get_body(("html",)).get_content()
+
+
 def test_without_gemini_no_ai_notice(env):
     assert run(env) == 0
     text = env["sent"][0][0].get_body(("plain",)).get_content()
     assert "AI-generated" not in text
+
+
+def test_arxiv_window_ends_lag_days_before_the_run(env, monkeypatch, sample_items):
+    calls = {}
+
+    def capture(name):
+        def fetch(settings, **kw):
+            calls[name] = kw
+            return list(sample_items[name])
+        return fetch
+
+    monkeypatch.setattr(runner.sources, "fetch_arxiv", capture("arxiv"))
+    monkeypatch.setattr(runner.sources, "fetch_huggingface", capture("huggingface"))
+    assert run(env, "--dry-run", "--output-dir", str(env["tmp"] / "out")) == 0
+    arxiv, hf = calls["arxiv"], calls["huggingface"]
+    # Default lag_days = 3: same 7-day length, shifted back 3 days; Hugging Face is not shifted
+    assert arxiv["until"] - arxiv["since"] == timedelta(days=7)
+    assert hf["until"] - arxiv["until"].date() == timedelta(days=3)

@@ -94,6 +94,7 @@ All content settings live in [`config.toml`](config.toml). The file is part of t
 | | `state_file`, `state_retention_days` | State file and how long entries stay in it |
 | `[newsletter.top_k]` | `arxiv`, `huggingface`, `github`, `blogs` | Number of items per section |
 | `[newsletter.arxiv]` | `max_fetch` | Upper limit for the weekly query (a week has roughly 2,000–2,500 papers) |
+| | `lag_days` | The arXiv window ends this many days before the run, because arXiv lists papers only after their announcement (default: 3) |
 | `[newsletter.github]` | `min_stars`, `max_fetch` | Minimum stars, candidates per topic |
 | `[llm]` | `enabled`, `model` | Gemini summary and glossary on/off, Gemini model (default `gemini-3.8-flash`) |
 | | `glossary_known_terms` | Terms you already know; they never appear in the glossary. Extend it to fine-tune the glossary |

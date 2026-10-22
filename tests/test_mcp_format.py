@@ -44,3 +44,5 @@ def test_tool_error_messages(monkeypatch):
     assert server.fetch_huggingface_daily_papers() == "Error fetching Hugging Face: status code 503"
     monkeypatch.setattr(server.sources, "fetch_github", raise_(SourceError("pytorch: Status 403")))
     assert server.fetch_github_trending_ml_repos() == "GitHub API query failed: pytorch: Status 403"
+    monkeypatch.setattr(server.sources, "fetch_arxiv", raise_(TimeoutError("read timed out")))
+    assert server.fetch_filtered_arxiv_papers() == "arXiv query failed: TimeoutError: read timed out"

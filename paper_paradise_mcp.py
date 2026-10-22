@@ -101,7 +101,10 @@ def fetch_filtered_arxiv_papers(
     Searches for new arXiv papers, filters them semantically against the learning profile,
     and returns only the most relevant papers to save tokens.
     """
-    items = sources.fetch_arxiv(settings, categories=categories, max_fetch=max_fetch, top_k=top_k)
+    try:
+        items = sources.fetch_arxiv(settings, categories=categories, max_fetch=max_fetch, top_k=top_k)
+    except Exception as e:
+        return f"arXiv query failed: {type(e).__name__}: {e}"
     return format_arxiv(items)
 
 
