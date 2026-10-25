@@ -1,4 +1,5 @@
 """fetch_blogs with mocked HTTP responses (no network)."""
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -112,3 +113,13 @@ def test_without_window_only_newest_posts_are_candidates(monkeypatch):
 
 def test_html_entities_in_teasers_are_decoded():
     assert sources._strip_html("<p>IBM&#8217;s Spyre &amp; PyTorch</p>") == "IBM\u2019s Spyre & PyTorch"
+
+
+def test_feed_dates_are_utc_and_the_window_compares_in_utc(monkeypatch):
+    monkeypatch.setattr(sources.requests, "get", fake_get({"https://blog.test/feed": (200, RSS)}))
+    settings = settings_with(["https://blog.test/feed"])
+    # "Newer post" is Thu, 08 Oct 2026 10:00:00 GMT
+    items = sources.fetch_blogs(settings, top_k=10, since=datetime(2026, 10, 8, 9, 30, tzinfo=timezone.utc))
+    assert [i.title for i in items] == ["Newer post"]
+    assert items[0].date == datetime(2026, 10, 8, 10, 0, tzinfo=timezone.utc)
+    assert sources.fetch_blogs(settings, top_k=10, since=datetime(2026, 10, 8, 10, 30, tzinfo=timezone.utc)) == []

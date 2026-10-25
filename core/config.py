@@ -18,6 +18,7 @@ class NewsletterSettings:
     state_retention_days: int
     top_k: dict[str, int]
     arxiv_max_fetch: int
+    arxiv_lag_days: int
     github_min_stars: int
     github_max_fetch: int
 
@@ -83,7 +84,8 @@ def load_settings(path: str | Path | None = None) -> Settings:
                 "arxiv": 5, "huggingface": 5, "github": 5, "blogs": 5,
                 **nl.get("top_k", {}),
             },
-            arxiv_max_fetch=nl.get("arxiv", {}).get("max_fetch", 3000),
+            arxiv_max_fetch=nl.get("arxiv", {}).get("max_fetch", 5000),
+            arxiv_lag_days=nl.get("arxiv", {}).get("lag_days", 3),
             github_min_stars=nl.get("github", {}).get("min_stars", 20),
             github_max_fetch=nl.get("github", {}).get("max_fetch", 30),
         ),

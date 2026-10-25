@@ -51,12 +51,16 @@ def fetch_all(settings: Settings, now: datetime) -> tuple[dict[str, list[Item]],
     since = now - timedelta(days=nl.window_days)
     fetchers = {
         "huggingface": lambda k: sources.fetch_huggingface(settings, top_k=k, since=since.date(), until=now.date()),
-        "arxiv": lambda k: sources.fetch_arxiv(settings, max_fetch=nl.arxiv_max_fetch, top_k=k, since=since, until=now),
+        # arXiv lists a paper only once it is announced (up to ~3 days after submission), so the
+        # window is shifted back: papers from Friday to Monday morning are not in the API yet
+        "arxiv": lambda k: sources.fetch_arxiv(
+            settings, max_fetch=nl.arxiv_max_fetch, top_k=k,
+            since=since - timedelta(days=nl.arxiv_lag_days), until=now - timedelta(days=nl.arxiv_lag_days),
+        ),
         "github": lambda k: sources.fetch_github(
             settings, top_k=k, days=nl.window_days, min_stars=nl.github_min_stars, max_fetch=nl.github_max_fetch
         ),
-        # Feed dates are naive local time (see core.sources.fetch_blogs)
-        "blogs": lambda k: sources.fetch_blogs(settings, top_k=k, since=datetime.now() - timedelta(days=nl.window_days)),
+        "blogs": lambda k: sources.fetch_blogs(settings, top_k=k, since=since),
     }
 
     items_by_source: dict[str, list[Item]] = {}
@@ -116,7 +120,10 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("%s", e)
             return EXIT_CONFIG_ERROR
 
-    items_by_source, failed = fetch_all(settings, now)
+    # Windows end at 00:00 UTC of the run day, so a run GitHub starts late covers the same period
+    # as an on-time one and consecutive weekly runs leave no gap
+    window_end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    items_by_source, failed = fetch_all(settings, window_end)
     if not items_by_source:
         logger.error("All sources failed, nothing will be sent.")
         return EXIT_ALL_SOURCES_FAILED
@@ -129,17 +136,19 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OK
 
     annotations = annotate(settings, all_items) if not args.no_llm else None
-    if annotations:
-        for item in all_items:
+    rewrites = annotations.rewrites if annotations else {}
+    for item in all_items:
+        if annotations:
             item.why = annotations.why.get(item.key)
-            # Blog teasers belong to their publishers: show Gemini's own-words version instead
-            if item.source == "blogs" and annotations.generated:
-                item.summary = annotations.rewrites.get(item.key, "")
+        # Blog teasers belong to their publishers: show Gemini's own-words version instead,
+        # and nothing at all without one (no API key, --no-llm, or the Gemini call failed)
+        if item.source == "blogs":
+            item.summary = rewrites.get(item.key, "")
 
     html, text = render_newsletter(NewsletterContext(
         sections=selected,
-        period_start=now - timedelta(days=settings.newsletter.window_days),
-        period_end=now,
+        period_start=window_end - timedelta(days=settings.newsletter.window_days),
+        period_end=window_end,
         failed_sources=failed,
         headline=annotations.headline if annotations else None,
         summary=annotations.summary if annotations else None,

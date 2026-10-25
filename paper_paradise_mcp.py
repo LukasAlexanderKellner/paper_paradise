@@ -23,6 +23,10 @@ mcp = FastMCP("Smart arXiv & AI News Agent")
 get_embedder()
 
 
+def excerpt(text: str, length: int) -> str:
+    return text if len(text) <= length else text[:length] + "..."
+
+
 def format_arxiv(items: list[Item]) -> str:
     if not items:
         return "No matching arXiv papers found after filtering."
@@ -34,7 +38,7 @@ def format_arxiv(items: list[Item]) -> str:
             f"Relevance score: {p.score}\n"
             f"Categories: {', '.join(p.meta['categories'])}\n"
             f"URL: {p.url}\n"
-            f"Abstract (excerpt): {p.summary[:400]}...\n"
+            f"Abstract (excerpt): {excerpt(p.summary, 400)}\n"
             f"{'-'*40}"
         )
     return "\n\n".join(output)
@@ -50,7 +54,7 @@ def format_huggingface(items: list[Item]) -> str:
             f"Title: {p.title}\n"
             f"Upvotes: {p.meta['upvotes']}\n"
             f"arXiv ID / URL: {p.url}\n"
-            f"Summary: {p.summary[:350]}...\n"
+            f"Summary: {excerpt(p.summary, 350)}\n"
             f"{'-'*40}"
         )
     return "\n\n".join(output)
@@ -101,7 +105,10 @@ def fetch_filtered_arxiv_papers(
     Searches for new arXiv papers, filters them semantically against the learning profile,
     and returns only the most relevant papers to save tokens.
     """
-    items = sources.fetch_arxiv(settings, categories=categories, max_fetch=max_fetch, top_k=top_k)
+    try:
+        items = sources.fetch_arxiv(settings, categories=categories, max_fetch=max_fetch, top_k=top_k)
+    except Exception as e:
+        return f"arXiv query failed: {type(e).__name__}: {e}"
     return format_arxiv(items)
 
 

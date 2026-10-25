@@ -1,9 +1,9 @@
+import calendar
 import html
 import logging
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
-from time import mktime
 
 import arxiv
 import feedparser
@@ -20,6 +20,9 @@ GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
 FEED_TIMEOUT_SECONDS = 10
 # Without a time window, only the newest posts per feed are ranked (some feeds contain years of archive)
 FEED_RECENT_ENTRIES = 20
+
+# Sort key for posts without a date
+OLDEST = datetime.min.replace(tzinfo=timezone.utc)
 
 _ARXIV_ID_RE = re.compile(r"arxiv\.org/(?:abs|pdf)/([^?#/]+?)(?:v\d+)?(?:\.pdf)?(?:[?#].*)?$")
 
@@ -61,6 +64,10 @@ def fetch_arxiv(
         sort_by=arxiv.SortCriterion.SubmittedDate,
     )
     raw_papers = list(client.results(search))
+    if len(raw_papers) >= max_fetch:
+        # Results come newest first, so the cap silently drops the oldest papers of the window
+        logger.warning("arXiv: max_fetch (%d) reached, the oldest papers of the window were not fetched; "
+                       "raise [newsletter.arxiv] max_fetch.", max_fetch)
 
     papers = [p for p in raw_papers if not is_excluded(settings.exclude_keywords, p.title, p.summary)]
     if not papers:
@@ -123,7 +130,8 @@ def fetch_huggingface(
     unique = {}
     for item in raw:
         paper = item.get("paper", {})
-        unique.setdefault(paper.get("id"), item)
+        if paper.get("id"):  # without an arXiv ID there is no link and no dedupe key
+            unique.setdefault(paper["id"], item)
 
     # Upvotes live in item["paper"], not on the top-level item
     papers = [
@@ -246,7 +254,7 @@ def fetch_blogs(
     """
     Fetch posts of all configured blog feeds, rank them against the profile within each feed
     and pick round-robin across feeds.
-    With `since` (naive local time), all posts published after it are candidates; without it,
+    With `since` (timezone-aware), all posts published after it are candidates; without it,
     the newest FEED_RECENT_ENTRIES posts per feed.
     Raises SourceError if no feed could be fetched.
     """
@@ -281,7 +289,8 @@ def fetch_blogs(
                 if is_excluded(settings.exclude_keywords, entry.get("title"), entry.get("summary")):
                     continue
                 published = entry.get("published_parsed") or entry.get("updated_parsed")
-                published = datetime.fromtimestamp(mktime(published)) if published else None
+                # feedparser normalizes feed dates to UTC struct_time
+                published = datetime.fromtimestamp(calendar.timegm(published), timezone.utc) if published else None
                 if since and (published is None or published < since):
                     continue
                 entries.append(Item(
@@ -293,7 +302,7 @@ def fetch_blogs(
                     date=published,
                     meta={"feed": source},
                 ))
-            entries.sort(key=lambda e: e.date or datetime.min, reverse=True)
+            entries.sort(key=lambda e: e.date or OLDEST, reverse=True)
             if since is None:
                 entries = entries[:FEED_RECENT_ENTRIES]
             per_feed.append(entries)
@@ -310,7 +319,7 @@ def fetch_blogs(
     for entry, score in zip(all_entries, scores):
         entry.score = score
     for entries in per_feed:
-        entries.sort(key=lambda e: (e.score, e.date or datetime.min), reverse=True)
+        entries.sort(key=lambda e: (e.score, e.date or OLDEST), reverse=True)
 
     # Round-robin across feeds so a single prolific blog cannot fill all slots
     selected = []

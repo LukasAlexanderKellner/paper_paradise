@@ -45,8 +45,12 @@ github = 5
 blogs = 5
 
 [newsletter.arxiv]
-# Upper limit for the weekly query (cs.LG + cs.AI + cs.DC yield roughly 2,000-2,500 papers per week)
-max_fetch = 3000
+# Upper limit for the weekly query (cs.LG + cs.AI + cs.DC: 2,737 papers in the week to 2026-10-19).
+# Results are newest first, so if the cap is reached the oldest papers are dropped (logged as a warning).
+max_fetch = 5000
+# The window ends this many days before the run: arXiv's API lists a paper only after its announcement,
+# so papers submitted Friday to Monday morning are not there yet on Monday and would be skipped for good
+lag_days = 3
 
 [newsletter.github]
 min_stars = 20
